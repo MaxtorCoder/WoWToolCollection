@@ -9,7 +9,8 @@ namespace RibbitMonitor
 {
     class CacheParse
     {
-        public static Dictionary<List<Versions>, string> VersionDictionary = new Dictionary<List<Versions>, string>();
+        public static Dictionary<string, List<Versions>> VersionDictionary = new Dictionary<string, List<Versions>>();
+        public static List<Versions> versionsList = new List<Versions>();
 
         public static void ParseCacheFiles(bool parse = false)
         {
@@ -20,12 +21,10 @@ namespace RibbitMonitor
                 allFiles.AddRange(files);
 
                 var filesThatMatter = allFiles.FindAll(x => x.Contains("version")); // "version_" files.
-                filesThatMatter.RemoveAt(0); // demo
-                filesThatMatter.RemoveAt(0); // dev
 
                 foreach (var file in filesThatMatter)
                 {
-                    var versionsList = new List<Versions>();
+                    versionsList = new List<Versions>();
                     // Console.WriteLine($"Parsing {file}...");
 
                     using (var sr = File.OpenText(file))
@@ -35,12 +34,11 @@ namespace RibbitMonitor
                         {
                             try
                             {
-                                var version = HandleLine(line);
-                                versionsList.Add(version);
+                                HandleLine(line);
                             }
                             catch { }
                         }
-                        VersionDictionary.Add(versionsList, file);
+                        VersionDictionary.Add(file, versionsList);
                     }
                 }
             }
@@ -51,7 +49,7 @@ namespace RibbitMonitor
             if (!line.StartsWith("eu") && !line.StartsWith("us") && !line.StartsWith("kr")
                 && !line.StartsWith("cn") && !line.StartsWith("tw") && !line.StartsWith("sg")
                 && !line.StartsWith("xx"))
-                return new Versions();
+                return null;
 
             var versionStruct = new Versions();
             var lineSplit = line.Split("|");
@@ -69,6 +67,8 @@ namespace RibbitMonitor
             versionStruct.BuildId       = uint.Parse(lineSplit[4]);
             versionStruct.VersionsName  = lineSplit[5];
             versionStruct.ProductConfig = lineSplit[6];
+
+            versionsList.Add(versionStruct);
 
             return versionStruct;
         }

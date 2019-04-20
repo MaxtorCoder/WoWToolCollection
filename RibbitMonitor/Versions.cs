@@ -5,7 +5,7 @@ using System.Text;
 
 namespace RibbitMonitor
 {
-    public struct Versions
+    public class Versions
     {
         public string Region { get; set; }
         public string BuildConfig { get; set; }
