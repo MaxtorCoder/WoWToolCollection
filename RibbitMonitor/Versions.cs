@@ -8,6 +8,7 @@ namespace RibbitMonitor
     public class Versions
     {
         public string Region { get; set; }
+        public string Branch { get; set; }
         public string BuildConfig { get; set; }
         public string CDNConfig { get; set; }
         public string KeyRing { get; set; }

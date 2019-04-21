@@ -16,7 +16,7 @@ namespace RibbitMonitor
         private static Dictionary<(string, string), string> CachedFiles = new Dictionary<(string, string), string>();
         private static List<string> WoWProducts = new List<string>()
         {
-            "wow", "wowt", "wowz", "wowv", "wow_classic", "wow_classic_beta", "wow_beta"
+            "wow", "wowt", "wowz", "wowv", "wow_classic", "wow_classic_beta", "wow_beta", "wowe1", "wowe2", "wowe3"
         };
 
 
@@ -77,7 +77,7 @@ namespace RibbitMonitor
                     }
                 }
             }
-            CacheParse.ParseCacheFiles();
+            CacheParse.ParseCacheFiles(true);
             CacheParse.VersionDictionary.Remove(CacheParse.VersionDictionary.Keys.First());
 
             Console.WriteLine("Starting Monitoring Mode..");
@@ -120,7 +120,7 @@ namespace RibbitMonitor
                                     var filename = $"{newEntry.Key.Item2}_{newEntry.Key.Item1}_{newEntry.Value}_temp.bmime";
                                     File.WriteAllText(Path.Combine("cache", filename), subRequest.message.ToString());
 
-                                    CacheParse.ParseCacheFiles();
+                                    CacheParse.ParseCacheFiles(true);
                                     CacheParse.VersionDictionary.Remove(CacheParse.VersionDictionary.Keys.First());
                                 }
                                 catch (Exception e)
@@ -139,7 +139,7 @@ namespace RibbitMonitor
                     }
                 }
 
-                Thread.Sleep(3000);
+                Thread.Sleep(10000);
             }
         }
 
