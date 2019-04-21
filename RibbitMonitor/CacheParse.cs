@@ -12,7 +12,7 @@ namespace RibbitMonitor
         public static Dictionary<string, List<Versions>> VersionDictionary = new Dictionary<string, List<Versions>>();
         public static List<Versions> versionsList = new List<Versions>();
 
-        public static void ParseCacheFiles(bool parse = false)
+        public static void ParseCacheFiles()
         {
             if (Directory.Exists("cache"))
             {
@@ -34,7 +34,9 @@ namespace RibbitMonitor
                         {
                             try
                             {
-                                HandleLine(line);
+                                var version = HandleLine(line);
+                                if (version != null)
+                                    versionsList.Add(version);
                             }
                             catch { }
                         }
@@ -68,9 +70,12 @@ namespace RibbitMonitor
             versionStruct.VersionsName  = lineSplit[5];
             versionStruct.ProductConfig = lineSplit[6];
 
-            versionsList.Add(versionStruct);
-
             return versionStruct;
+        }
+
+        private static void AddDatabaseEntry()
+        {
+
         }
     }
 }

@@ -77,7 +77,7 @@ namespace RibbitMonitor
                     }
                 }
             }
-            CacheParse.ParseCacheFiles(true);
+            CacheParse.ParseCacheFiles();
             CacheParse.VersionDictionary.Remove(CacheParse.VersionDictionary.Keys.First());
 
             Console.WriteLine("Starting Monitoring Mode..");
@@ -119,6 +119,9 @@ namespace RibbitMonitor
                                     var subRequest = client.Request($"v1/products/{newEntry.Key.Item1}/{endpoint}");
                                     var filename = $"{newEntry.Key.Item2}_{newEntry.Key.Item1}_{newEntry.Value}_temp.bmime";
                                     File.WriteAllText(Path.Combine("cache", filename), subRequest.message.ToString());
+
+                                    CacheParse.ParseCacheFiles();
+                                    CacheParse.VersionDictionary.Remove(CacheParse.VersionDictionary.Keys.First());
                                 }
                                 catch (Exception e)
                                 {

@@ -22,7 +22,7 @@ namespace WoWFileGuesser
             else
                 FileGuesser.LoadFileTypes(CollectionFile);
 
-            string[] m2Files = Directory.GetFiles(exportedPath, "*.m2");
+            string[] m2Files = Directory.GetFiles(exportedPath);
             foreach (string m2File in m2Files)
             {
                 FileGuesser.ProcessFile(m2File);
