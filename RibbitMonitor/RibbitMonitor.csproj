@@ -15,4 +15,10 @@
     <ProjectReference Include="..\Ribbit.NET\Ribbit.NET.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <None Update="Branches.csv">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
+
 </Project>

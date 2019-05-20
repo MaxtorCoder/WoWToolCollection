@@ -25,7 +25,7 @@ namespace WoWFileGuesser
             string extension    = string.Empty;
             string fileName     = Path.GetFileName(path);
             string[] split      = fileName.Split('_');
-            uint filedataId     = uint.Parse(split[0]);
+            uint filedataId     = uint.Parse(split[1]);
 
             using (MemoryStream ms = new MemoryStream(data))
             using (BinaryReader reader = new BinaryReader(ms))
@@ -58,9 +58,9 @@ namespace WoWFileGuesser
                 ms.Close();
 
                 if (extension == "m2")
-                    Console.WriteLine($"Hash: {split[1]} FileDataId: {filedataId} ChunkId: {ChunkId} Name: {M2Reader.Names[filedataId]}");
+                    Console.WriteLine($"FileDataId: {filedataId} ChunkId: {ChunkId} Name: {M2Reader.Names[filedataId]}");
                 else
-                    Console.WriteLine($"Hash: {split[1]} FileDataId: {filedataId} ChunkId: {ChunkId}");
+                    Console.WriteLine($"FileDataId: {filedataId} ChunkId: {ChunkId}");
 
                 NameFiles(path, extension, filedataId);
             }
@@ -108,6 +108,8 @@ namespace WoWFileGuesser
 
                 if (ContainDict.ContainsKey(splitM2[0]))
                     ListfileEntry.Add(fileDataId, $@"{ContainDict[splitM2[0].ToLower()]}\{M2Reader.Names[fileDataId]}.{extension}");
+                else
+                    ListfileEntry.Add(fileDataId, $@"Creature\{M2Reader.Names[fileDataId]}\{M2Reader.Names[fileDataId]}.{extension}");
 
                 if (M2Reader.SkinIds.ContainsValue(fileDataId))
                 {
@@ -130,7 +132,7 @@ namespace WoWFileGuesser
                 }
             }
 
-            File.Move(path, Path.ChangeExtension(path, extension));
+            // File.Move(path, Path.ChangeExtension(path, extension));
         }
 
         public static void AddListfileEntry(string path)

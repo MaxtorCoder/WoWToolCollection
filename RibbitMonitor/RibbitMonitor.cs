@@ -8,20 +8,19 @@ using System.IO;
 using System.Threading;
 using System.Collections.Generic;
 using System.Linq;
+using RibbitMonitor.MySql;
 
 namespace RibbitMonitor
 {
     class RibbitMonitor
     {
         private static Dictionary<(string, string), string> CachedFiles = new Dictionary<(string, string), string>();
-        private static List<string> WoWProducts = new List<string>()
-        {
-            "wow", "wowt", "wowz", "wowv", "wow_classic", "wow_classic_beta", "wow_beta", "wowe1", "wowe2", "wowe3"
-        };
+        private static uint oldSeq, newSeq = 0;
 
-
-        static void Main(string[] args)
+        static void Main()
         {
+            MySqlMisc.LoadBranches("Branches.csv");
+
             if (!Directory.Exists("cache"))
                 Directory.CreateDirectory("cache");
 
@@ -36,50 +35,46 @@ namespace RibbitMonitor
             foreach (var entry in currentSummary)
             {
                 if (entry.Value == 0)
-                {
-                    Console.WriteLine($"Sequence number for {entry.Key} is 0, skipping..");
                     continue;
-                }
 
-                var endpoint = "";
-
-                if (WoWProducts.Contains(entry.Key.Item1))
+                try
                 {
-                    if (entry.Key.Item2 == "version" || entry.Key.Item2 == "cdn")
+                    var endpoint = "";
+
+                    if (entry.Key.Item2 == "version"
+                     || entry.Key.Item2 == "cdn")
                         endpoint = entry.Key.Item2 + "s";
-                    else if (entry.Key.Item2 == "bgdl")
+                    else
                         endpoint = entry.Key.Item2;
 
-                    try
+                    var oldFile = $"{entry.Key.Item2}.{entry.Key.Item1}.bmime";
+                    var newFile = $"{entry.Key.Item2}.{entry.Key.Item1}_new.bmime";
+
+                    var subRequest = client.Request($"v1/products/{entry.Key.Item1}/{endpoint}");
+
+                    File.WriteAllText(Path.Combine("cache", newFile), subRequest.message.ToString());
+
+                    if (File.Exists(Path.Combine("cache", oldFile)))
+                        oldSeq = CacheParse.GetSeqNumber(Path.Combine("cache", oldFile));
+
+                    if (File.Exists(Path.Combine("cache", newFile)))
+                        newSeq = CacheParse.GetSeqNumber(Path.Combine("cache", newFile));
+
+                    if (oldSeq < newSeq)
                     {
-                        var filename = $"{entry.Key.Item2}_{entry.Key.Item1}_{entry.Value}.bmime";
+                        Console.WriteLine($"Higher Sequence Number! [{oldSeq} > {newSeq}][{oldFile}]");
 
-                        Response subRequest;
-
-                        if (File.Exists(Path.Combine("cache", filename)))
-                            subRequest = new Response(new MemoryStream(File.ReadAllBytes(Path.Combine("cache", filename))));
-                        else
-                        {
-                            Console.WriteLine($"Product: {entry.Key.Item1}\nEndpoint: {endpoint}\nFilename: {filename}\n-----------------------------------");
-
-                            subRequest = client.Request($"v1/products/{entry.Key.Item1}/{endpoint}");
-
-                            File.WriteAllText(Path.Combine("cache", filename), subRequest.message.ToString());
-
-                            Thread.Sleep(100);
-                        }
-
-                        CachedFiles[entry.Key] = subRequest.ToString();
+                        File.Delete(Path.Combine("cache", oldFile));
+                        File.Move(Path.Combine("cache", newFile), Path.Combine("cache", oldFile));
                     }
-                    catch (FormatException e)
-                    {
-                        Console.WriteLine($"{entry.Key} is forked");
-                    }
+                    else
+                        File.Delete(Path.Combine("cache", newFile));
+
+                    CachedFiles[entry.Key] = subRequest.ToString();
                 }
+                catch (FormatException e) { Console.WriteLine($"{entry.Key} is forked. Error: {e.Message}"); }
             }
-            CacheParse.ParseCacheFiles(true);
-            CacheParse.VersionDictionary.Remove(CacheParse.VersionDictionary.Keys.First());
-
+            CacheParse.ParseCacheFiles();
             Console.WriteLine("Starting Monitoring Mode..");
 
             while (true)
@@ -101,35 +96,33 @@ namespace RibbitMonitor
                 {
                     if (currentSummary.ContainsKey(newEntry.Key))
                     {
-                        if (WoWProducts.Contains(newEntry.Key.Item1))
+                        if (newEntry.Value > currentSummary[newEntry.Key])
                         {
-                            if (newEntry.Value > currentSummary[newEntry.Key])
-                            {
-                                Console.WriteLine($"[{DateTime.Now}] Sequence number for {newEntry.Key} increased from {currentSummary[newEntry.Key]} to {newEntry.Value}");
+                            Console.WriteLine($"[{DateTime.Now}] Sequence number for {newEntry.Key} increased from {currentSummary[newEntry.Key]} -> {newEntry.Value}");
 
+                            try
+                            {
                                 var endpoint = "";
 
-                                if (newEntry.Key.Item2 == "version" || newEntry.Key.Item2 == "cdn")
+                                if (newEntry.Key.Item2 == "version"
+                                 || newEntry.Key.Item2 == "cdn")
                                     endpoint = newEntry.Key.Item2 + "s";
-                                else if (newEntry.Key.Item2 == "bgdl")
+                                else
                                     endpoint = newEntry.Key.Item2;
 
-                                try
-                                {
-                                    var subRequest = client.Request($"v1/products/{newEntry.Key.Item1}/{endpoint}");
-                                    var filename = $"{newEntry.Key.Item2}_{newEntry.Key.Item1}_{newEntry.Value}_temp.bmime";
-                                    File.WriteAllText(Path.Combine("cache", filename), subRequest.message.ToString());
+                                var oldFile = $"{newEntry.Key.Item2}.{newEntry.Key.Item1}.bmime";
+                                var newFile = $"{newEntry.Key.Item2}.{newEntry.Key.Item1}_new.bmime";
 
-                                    CacheParse.ParseCacheFiles(true);
-                                    CacheParse.VersionDictionary.Remove(CacheParse.VersionDictionary.Keys.First());
-                                }
-                                catch (Exception e)
-                                {
-                                    Console.WriteLine($"Error during diff: {e.Message}");
-                                }
+                                var subRequest = client.Request($"v1/products/{newEntry.Key.Item1}/{endpoint}");
 
-                                currentSummary[newEntry.Key] = newEntry.Value;
+                                File.Delete(Path.Combine("cache", oldFile));
+                                File.WriteAllText(Path.Combine("cache", oldFile), subRequest.message.ToString());
+
+                                CacheParse.ParseCacheFiles();
                             }
+                            catch (Exception e) { Console.WriteLine($"Error during diff: {e.Message}"); }
+
+                            currentSummary[newEntry.Key] = newEntry.Value;
                         }
                     }
                     else
@@ -139,7 +132,7 @@ namespace RibbitMonitor
                     }
                 }
 
-                Thread.Sleep(10000);
+                Thread.Sleep(90000);
             }
         }
 
@@ -161,34 +154,6 @@ namespace RibbitMonitor
                 }
             }
             return summaryDictionary;
-        }
-
-        private static string DiffFile(string oldContent, string newContent)
-        {
-            var oldFile = new BPSV(oldContent);
-            var newFile = new BPSV(newContent);
-
-            foreach (var oldEntry in oldFile.data)
-            {
-                var regionMatch = false;
-
-                foreach (var newEntry in newFile.data)
-                {
-                    // Region matches
-                    if (oldEntry[0] == newEntry[0])
-                    {
-                        regionMatch = true;
-                        // diff each field
-                    }
-                }
-
-                if (regionMatch == false)
-                {
-                    // new region
-                }
-            }
-
-            return "";
         }
     }
 }
