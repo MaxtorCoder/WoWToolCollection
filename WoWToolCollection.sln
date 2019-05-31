@@ -9,7 +9,9 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "RibbitMonitor", "RibbitMoni
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Ribbit.NET", "Ribbit.NET\Ribbit.NET.csproj", "{3CBED528-129B-4B71-B545-E2381E243871}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "AgentTest", "AgentTest\AgentTest.csproj", "{3DB05904-1E10-4CCA-A6BC-68175A0E84FE}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "AgentTest", "AgentTest\AgentTest.csproj", "{3DB05904-1E10-4CCA-A6BC-68175A0E84FE}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DB2Dumper", "DB2Dumper\DB2Dumper.csproj", "{127840EB-20D4-47C5-AC65-3485C84AC12F}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -33,6 +35,10 @@ Global
 		{3DB05904-1E10-4CCA-A6BC-68175A0E84FE}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{3DB05904-1E10-4CCA-A6BC-68175A0E84FE}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{3DB05904-1E10-4CCA-A6BC-68175A0E84FE}.Release|Any CPU.Build.0 = Release|Any CPU
+		{127840EB-20D4-47C5-AC65-3485C84AC12F}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{127840EB-20D4-47C5-AC65-3485C84AC12F}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{127840EB-20D4-47C5-AC65-3485C84AC12F}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{127840EB-20D4-47C5-AC65-3485C84AC12F}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
