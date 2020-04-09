@@ -2,7 +2,7 @@ namespace Ribbit.Constants
 {
     public enum Region
     {
-        EU, US, KR, CN, TW, SG, XX
+        EU, US, KR, CN, TW, SG, XX, Custom
     }
 
     internal static class RegionExtensions
@@ -18,11 +18,22 @@ namespace Ribbit.Constants
                 case Region.TW: return "tw";
                 case Region.SG: return "sg";
                 case Region.XX: return "xx";
+                case Region.Custom: return "127.0.0.1";
                 default: throw new UnknownRegionException(region);
             }
         }
 
-        public static string GetHostname(this Region region) => region.GetName() + ".version.battle.net";
+        public static string GetHostname(this Region region)
+        {
+            var hostname = "";
+
+            if (region == Region.Custom)
+                hostname = region.GetName();
+            else
+                hostname = region.GetName() + "version.battle.net";
+
+            return hostname;
+        }
     }
 
     public class UnknownRegionException : System.Exception

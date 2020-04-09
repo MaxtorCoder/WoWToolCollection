@@ -76,4 +76,89 @@ namespace AgentTest
         [JsonProperty(PropertyName = "uid")]
         public string UID { get; set; }
     }
+
+    #region Install Response
+    public class ExtendedStatus
+    {
+        public double current { get; set; }
+        public double total { get; set; }
+        public double state { get; set; }
+        public double remaining { get; set; }
+        public double rate { get; set; }
+        public string unit_type { get; set; }
+    }
+
+    public class SharedContainerInfo
+    {
+        public string subpath { get; set; }
+    }
+
+    public class Us
+    {
+        public string config_key { get; set; }
+        public string display_version { get; set; }
+        public bool playable { get; set; }
+    }
+
+    public class Eu
+    {
+        public string config_key { get; set; }
+        public string display_version { get; set; }
+        public bool selected { get; set; }
+        public bool playable { get; set; }
+    }
+
+    public class Cn
+    {
+        public string config_key { get; set; }
+        public string display_version { get; set; }
+        public bool playable { get; set; }
+    }
+
+    public class Kr
+    {
+        public string config_key { get; set; }
+        public string display_version { get; set; }
+        public bool playable { get; set; }
+    }
+
+    public class RegionalVersionInfo
+    {
+        public Us us { get; set; }
+        public Eu eu { get; set; }
+        public Cn cn { get; set; }
+        public Kr kr { get; set; }
+    }
+
+    public class UpdateResponse
+    {
+        public bool installed { get; set; }
+        public double progress { get; set; }
+        public double playable_progress { get; set; }
+        public bool download_complete { get; set; }
+        public bool patch_application_complete { get; set; }
+        public double state { get; set; }
+        public double download_rate { get; set; }
+        public bool paused { get; set; }
+        public double download_remaining { get; set; }
+        public double info_download_bytes { get; set; }
+        public double info_written_bytes { get; set; }
+        public double info_failed_bytes { get; set; }
+        public double info_expected_bytes { get; set; }
+        public double info_expected_org_bytes { get; set; }
+        public bool needs_rebase { get; set; }
+        public bool ignore_disc { get; set; }
+        public bool using_media { get; set; }
+        public ExtendedStatus extended_status { get; set; }
+        public string product_family { get; set; }
+        public SharedContainerInfo shared_container_info { get; set; }
+        public string region { get; set; }
+        public string branch { get; set; }
+        public string local_version { get; set; }
+        public string active_config_key { get; set; }
+        public double current_version { get; set; }
+        public bool playable { get; set; }
+        public RegionalVersionInfo regional_version_info { get; set; }
+    }
+    #endregion
 }
