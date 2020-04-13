@@ -6,17 +6,18 @@ using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
 using FilenameGuesser.Readers;
+using FilenameGuesser.Util;
 
 namespace FilenameGuesser
 {
     class Program
     {
-        private static string UnknownFolderPath = @"D:\Games\WoW\CSCExplorer\Work\Unknown";
-        private static string UnknownTypePath = @"D:\Games\WoW\CSCExplorer\Work\Named";
+        private static string UnknownFolderPath = @"D:\WoW\Tools\CASC\work\unknown";
+        private static string UnknownTypePath = @"D:\WoW\Tools\CASC\work\Named";
 
-        private static string[] Folders = { "M2", "OGG", "ANIM" };
+        private static string[] Folders = { "M2", "OGG" };
         private static ConcurrentDictionary<uint, string> FileXFileDataId = new ConcurrentDictionary<uint, string>();
-        private static Dictionary<uint, string> Listfile = new Dictionary<uint, string>();
+        private static ConcurrentDictionary<uint, string> Listfile = new ConcurrentDictionary<uint, string>();
     
         static void Main(string[] args)
         {
@@ -33,46 +34,40 @@ namespace FilenameGuesser
             foreach (var folder in Folders)
                 Directory.CreateDirectory($"{UnknownTypePath}\\{folder}");
             
-            Console.WriteLine($"Processing {files.Length} files..");
             Parallel.ForEach(files, file =>
             {
                 var fileDataId = uint.Parse(Path.GetFileName(file).Split('_')[1]);
+                FileXFileDataId.TryAdd(fileDataId, file);
+            });
 
-                if (!FileXFileDataId.ContainsKey(fileDataId))
-                    FileXFileDataId.TryAdd(fileDataId, file);
-
+            Console.WriteLine($"Processing {files.Length} files...");
+            Parallel.ForEach(files, file =>
+            {
                 try
                 {
-                    using (var stream = File.Open(file, FileMode.Open, FileAccess.Read, FileShare.Read))
+                    var fileDataId = uint.Parse(Path.GetFileName(file).Split('_')[1]);
+
+                    using (var stream = new MemoryStream(File.ReadAllBytes(file)))
                     using (var reader = new BinaryReader(stream))
                     {
-                        var chunkId = (Chunk) FlipUInt(reader.ReadUInt32());
+                        var chunkId = (Chunk)FlipUInt(reader.ReadUInt32());
 
-                        var fileBytes = new byte[stream.Length];
-                        stream.Position = 0;
-                        stream.Read(fileBytes, 0, fileBytes.Length);
-
-                        // Reset position back to 0
                         reader.BaseStream.Position = 0;
                         switch (chunkId)
                         {
                             case Chunk.MD21:
                                 var m2Reader = new M2Reader(reader);
+                                var pathName = Names.GetPathFromName(m2Reader.GetName());
+
+                                Listfile.TryAdd(fileDataId, $"{pathName}/{m2Reader.GetName()}.m2");
+
                                 NameTextures(m2Reader);
                                 NameSkins(m2Reader);
+                                NameAnims(m2Reader);
+                                NameLodSkins(m2Reader);
 
-                                File.WriteAllBytes($"{UnknownTypePath}\\M2\\{m2Reader.GetName()}.m2", fileBytes);
-                                break;
-                            case Chunk.OGGS:
-                                File.WriteAllBytes($"{UnknownTypePath}\\OGG\\{Path.GetFileNameWithoutExtension(file)}.ogg", fileBytes);
-                                break;
-                            case Chunk.AFM2:
-                                File.WriteAllBytes($"{UnknownTypePath}\\ANIM\\{Path.GetFileNameWithoutExtension(file)}.anim", fileBytes);
                                 break;
                         }
-
-                        reader.Close();
-                        stream.Close();
                     }
                 }
                 catch (Exception ex) { }
@@ -80,37 +75,86 @@ namespace FilenameGuesser
 
             watch.Stop();
             Console.WriteLine($"Finished processing {files.Length} files in {watch.Elapsed}");
+
+            Console.WriteLine($"Writing listfile, {Listfile.Count} new entries");
+            GenerateListfile();
+            Console.ReadKey();
         }
 
         static void NameTextures(M2Reader m2Reader)
         {
-            Parallel.ForEach(m2Reader.GetTextures(), texture =>
+            foreach (var texture in m2Reader.GetTextures())
             {
-                var texFilename = FileXFileDataId[texture];
-                if (texFilename == null)
-                    return;
-                
-                File.WriteAllBytes($"{UnknownTypePath}\\M2\\{m2Reader.GetName()}_{texture}.blp", File.ReadAllBytes(texFilename));
-            });
+                if (texture == 0)
+                    continue;
+
+                var pathName = Names.GetPathFromName(m2Reader.GetName());
+                string m2Name = m2Reader.GetName();
+
+                if (!Listfile.ContainsKey(texture))
+                    Listfile.TryAdd(texture, $"{pathName}/{m2Name}_{texture}.blp");
+                else  // Shared Texture
+                {
+                    var split = m2Reader.GetName().Split('_').ToList();
+                    split.Remove(split.Last());
+
+                    m2Name = string.Join('_', split.ToArray());
+                    Listfile[texture] = $"{pathName}/{m2Name}_{texture}.blp";
+                }
+            }
         }
 
         static void NameSkins(M2Reader m2Reader)
         {
             var skinList = m2Reader.GetSkins();
-            Parallel.ForEach(skinList, skin =>
+            foreach (var skin in skinList)
             {
-                var skinFilename = FileXFileDataId[skin];
-                if (skinFilename == null)
-                    return;
-
                 var skinCount = skinList.IndexOf(skin);
-                File.WriteAllBytes($"{UnknownTypePath}\\M2\\{m2Reader.GetName()}_{skinCount:00}.skin", File.ReadAllBytes(skinFilename));
-            });
+                var pathName = Names.GetPathFromName(m2Reader.GetName());
+                Listfile.TryAdd(skin, $"{pathName}/{m2Reader.GetName()}{skinCount:00}.skin");
+            }
+        }
+
+        static void NameLodSkins(M2Reader m2Reader)
+        {
+            var skinList = m2Reader.GetLodSkins();
+            foreach (var skin in skinList)
+            {
+                var skinCount = skinList.IndexOf(skin);
+                var pathName = Names.GetPathFromName(m2Reader.GetName());
+                Listfile.TryAdd(skin, $"{pathName}/{m2Reader.GetName()}_lod{skinCount:00}.skin");
+            }
+        }
+
+        static void NameAnims(M2Reader m2Reader)
+        {
+            var animList = m2Reader.GetAnims();
+            foreach (var anim in animList)
+            {
+                if (!FileXFileDataId.TryGetValue(anim.AnimFileId, out string animFilename))
+                    continue;
+
+                var pathName = Names.GetPathFromName(m2Reader.GetName());
+                Listfile.TryAdd(anim.AnimFileId, $"{pathName}/{m2Reader.GetName()}{anim.AnimId:0000}_{anim.SubAnimId:00}.anim");
+            }
         }
 
         public static uint FlipUInt(uint n)
         {
             return (n << 24) | (((n >> 16) << 24) >> 16) | (((n << 16) >> 24) << 16) | (n >> 24);
+        }
+
+        public static void GenerateListfile()
+        {
+            using (var writer = new StreamWriter("listfile.csv"))
+            {
+                var keys = Listfile.Keys.ToList();
+                keys.Sort();
+
+                foreach (var entry in keys)
+                    writer.WriteLine($"{entry};{Listfile[entry]}");
+                writer.Close();
+            }
         }
     }
 
@@ -130,6 +174,7 @@ namespace FilenameGuesser
         PGD1 = 1346847793,
         LDV1 = 1279546929,
         SFID = 1397115204,
-        TXID = 1415072068
+        TXID = 1415072068,
+        AFID = 1095125316
     }
 }
