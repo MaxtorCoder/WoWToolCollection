@@ -38,22 +38,21 @@ namespace FilenameGuesser.Readers
                         Reader.ReadBytes(8);
 
                         var m2Name = Reader.ReadM2Array();
-                        var currPos = Reader.BaseStream.Position;
+
+                        Reader.BaseStream.Position += 52;
+                        skinCount = Reader.ReadUInt32();
+
                         Reader.BaseStream.Position = m2Name.Offset + 8;
                         M2.Name = Encoding.UTF8.GetString(Reader.ReadBytes((int) m2Name.Size)).Replace("\0", "");
-
-                        Reader.BaseStream.Position = currPos;
-
-                        Skip(4 + 8 + 8 + 8 + 8 + 8 + 8);
-                        skinCount = Reader.ReadUInt32();
 
                         Reader.BaseStream.Position = 8;
                         Skip(size);
                         break;
                     case Chunk.LDV1:
-                        Reader.BaseStream.Position += 4;
+                        Reader.BaseStream.Position += 2;
                         lodCount = Reader.ReadUInt16() - 1u;
                         Reader.BaseStream.Position -= 4;
+                        Skip(size);
                         break;
                     case Chunk.TXID:
                         var textureCount = size / 4;
@@ -64,9 +63,8 @@ namespace FilenameGuesser.Readers
                         for (var i = 0; i < skinCount; ++i)
                             M2.SkinFileDataIds.Add(Reader.ReadUInt32());
 
-                        if (lodCount > 0)
-                            for (var i = 0; i < lodCount; ++i)
-                                M2.LodSkinFileDataIds.Add(Reader.ReadUInt32());
+                        for (var i = 0; i < lodCount; ++i)
+                            M2.LodSkinFileDataIds.Add(Reader.ReadUInt32());
 
                         break;
                     case Chunk.AFID:

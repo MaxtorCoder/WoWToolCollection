@@ -18,22 +18,22 @@ namespace FilenameGuesser
         private static string[] Folders = { "M2", "OGG" };
         private static ConcurrentDictionary<uint, string> FileXFileDataId = new ConcurrentDictionary<uint, string>();
         private static ConcurrentDictionary<uint, string> Listfile = new ConcurrentDictionary<uint, string>();
-    
+
         static void Main(string[] args)
         {
             var files = Directory.GetFiles(UnknownFolderPath, "*.*", SearchOption.AllDirectories);
             var watch = new Stopwatch();
             watch.Start();
-            
+
             // Delete all files and folders
             if (Directory.Exists(UnknownTypePath))
                 Directory.Delete(UnknownTypePath, true);
-            
+
             // Recreate the folders
             Directory.CreateDirectory(UnknownTypePath);
             foreach (var folder in Folders)
                 Directory.CreateDirectory($"{UnknownTypePath}\\{folder}");
-            
+
             Parallel.ForEach(files, file =>
             {
                 var fileDataId = uint.Parse(Path.GetFileName(file).Split('_')[1]);
@@ -117,10 +117,10 @@ namespace FilenameGuesser
 
         static void NameLodSkins(M2Reader m2Reader)
         {
-            var skinList = m2Reader.GetLodSkins();
-            foreach (var skin in skinList)
+            var lodSkinList = m2Reader.GetLodSkins();
+            foreach (var skin in lodSkinList)
             {
-                var skinCount = skinList.IndexOf(skin);
+                var skinCount = lodSkinList.IndexOf(skin);
                 var pathName = Names.GetPathFromName(m2Reader.GetName());
                 Listfile.TryAdd(skin, $"{pathName}/{m2Reader.GetName()}_lod{skinCount:00}.skin");
             }
@@ -148,11 +148,9 @@ namespace FilenameGuesser
         {
             using (var writer = new StreamWriter("listfile.csv"))
             {
-                var keys = Listfile.Keys.ToList();
-                keys.Sort();
+                foreach (var entry in Listfile)
+                    writer.WriteLine($"{entry.Key};{entry.Value}");
 
-                foreach (var entry in keys)
-                    writer.WriteLine($"{entry};{Listfile[entry]}");
                 writer.Close();
             }
         }

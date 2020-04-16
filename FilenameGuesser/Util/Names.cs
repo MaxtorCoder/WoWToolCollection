@@ -19,6 +19,7 @@ namespace FilenameGuesser.Util
                     return "world/expansion08/doodads/castlezone";
                 case "9nc":
                     return "world/expansion08/doodads/necro";
+                case "9ori":
                 case "9ob":
                     return "world/expansion08/doodads/oribos";
                 case "9ard":
@@ -31,7 +32,7 @@ namespace FilenameGuesser.Util
                 case "9fx":
                     return "world/expansion08/doodads/fx";
                 case "9fa":
-                    return "world/expansion08/doodads/fairy";
+                    return "world/expansion08/doodads/fae";
                 case "9vm":
                     return "world/expansion08/doodads/vampire";
                 case "9vl":
@@ -42,7 +43,7 @@ namespace FilenameGuesser.Util
                     return "world/expansion08/doodads/babylonzone";
                 case "mage":
                 case "cfx":
-                    return "spells/";
+                    return "spells";
                 case "polearm":
                 case "staff":
                 case "sword":
