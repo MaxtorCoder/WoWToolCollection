@@ -7,15 +7,9 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "RibbitMonitor", "RibbitMoni
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Ribbit.NET", "Ribbit.NET\Ribbit.NET.csproj", "{3CBED528-129B-4B71-B545-E2381E243871}"
 EndProject
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "AgentTest", "AgentTest\AgentTest.csproj", "{3DB05904-1E10-4CCA-A6BC-68175A0E84FE}"
-EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "DB2Dumper", "DB2Dumper\DB2Dumper.csproj", "{127840EB-20D4-47C5-AC65-3485C84AC12F}"
 EndProject
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "WDBReader", "WDBReader\WDBReader.csproj", "{3D265539-FE84-42A5-9E68-E220E3171A0E}"
-EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "RibbitServer", "RibbitServer\RibbitServer.csproj", "{AC9BA276-F992-4ED8-8C47-BD5BD2DAC21B}"
-EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "FilenameGuesser", "FilenameGuesser\FilenameGuesser.csproj", "{7B2B751D-ED26-4C72-94E2-C03F2F628CBA}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "FilenameGuesser", "FilenameGuesser\FilenameGuesser.csproj", "{7B2B751D-ED26-4C72-94E2-C03F2F628CBA}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -31,22 +25,10 @@ Global
 		{3CBED528-129B-4B71-B545-E2381E243871}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{3CBED528-129B-4B71-B545-E2381E243871}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{3CBED528-129B-4B71-B545-E2381E243871}.Release|Any CPU.Build.0 = Release|Any CPU
-		{3DB05904-1E10-4CCA-A6BC-68175A0E84FE}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{3DB05904-1E10-4CCA-A6BC-68175A0E84FE}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{3DB05904-1E10-4CCA-A6BC-68175A0E84FE}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{3DB05904-1E10-4CCA-A6BC-68175A0E84FE}.Release|Any CPU.Build.0 = Release|Any CPU
 		{127840EB-20D4-47C5-AC65-3485C84AC12F}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{127840EB-20D4-47C5-AC65-3485C84AC12F}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{127840EB-20D4-47C5-AC65-3485C84AC12F}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{127840EB-20D4-47C5-AC65-3485C84AC12F}.Release|Any CPU.Build.0 = Release|Any CPU
-		{3D265539-FE84-42A5-9E68-E220E3171A0E}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{3D265539-FE84-42A5-9E68-E220E3171A0E}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{3D265539-FE84-42A5-9E68-E220E3171A0E}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{3D265539-FE84-42A5-9E68-E220E3171A0E}.Release|Any CPU.Build.0 = Release|Any CPU
-		{AC9BA276-F992-4ED8-8C47-BD5BD2DAC21B}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{AC9BA276-F992-4ED8-8C47-BD5BD2DAC21B}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{AC9BA276-F992-4ED8-8C47-BD5BD2DAC21B}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{AC9BA276-F992-4ED8-8C47-BD5BD2DAC21B}.Release|Any CPU.Build.0 = Release|Any CPU
 		{7B2B751D-ED26-4C72-94E2-C03F2F628CBA}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{7B2B751D-ED26-4C72-94E2-C03F2F628CBA}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{7B2B751D-ED26-4C72-94E2-C03F2F628CBA}.Release|Any CPU.ActiveCfg = Release|Any CPU
