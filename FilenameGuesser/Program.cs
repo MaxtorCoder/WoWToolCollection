@@ -12,71 +12,52 @@ namespace FilenameGuesser
 {
     class Program
     {
-        private static string UnknownFolderPath = @"D:\WoW\Tools\CASC\work\unknown";
-        private static string UnknownTypePath = @"D:\WoW\Tools\CASC\work\Named";
-
-        private static string[] Folders = { "M2", "OGG" };
-        private static ConcurrentDictionary<uint, string> FileXFileDataId = new ConcurrentDictionary<uint, string>();
-        private static ConcurrentDictionary<uint, string> Listfile = new ConcurrentDictionary<uint, string>();
+        private static string UnknownFolderPath = @"D:\Games\WoW\CASCExplorer\Work\unknown";
+        private static ConcurrentDictionary<uint, string> AddedFileDataIds = new ConcurrentDictionary<uint, string>();
+        private static Dictionary<uint, string> Listfile = new Dictionary<uint, string>();
 
         static void Main(string[] args)
         {
+            // Read the original listfile.
+            ReadOriginalListfile();
+
             var files = Directory.GetFiles(UnknownFolderPath, "*.*", SearchOption.AllDirectories);
             var watch = new Stopwatch();
             watch.Start();
 
-            // Delete all files and folders
-            if (Directory.Exists(UnknownTypePath))
-                Directory.Delete(UnknownTypePath, true);
-
-            // Recreate the folders
-            Directory.CreateDirectory(UnknownTypePath);
-            foreach (var folder in Folders)
-                Directory.CreateDirectory($"{UnknownTypePath}\\{folder}");
-
-            Parallel.ForEach(files, file =>
-            {
-                var fileDataId = uint.Parse(Path.GetFileName(file).Split('_')[1]);
-                FileXFileDataId.TryAdd(fileDataId, file);
-            });
-
             Console.WriteLine($"Processing {files.Length} files...");
             Parallel.ForEach(files, file =>
             {
-                try
+                var fileDataId = uint.Parse(Path.GetFileName(file).Split('_')[1]);
+
+                using (var stream = new MemoryStream(File.ReadAllBytes(file)))
+                using (var reader = new BinaryReader(stream))
                 {
-                    var fileDataId = uint.Parse(Path.GetFileName(file).Split('_')[1]);
+                    var chunkId = (Chunk)FlipUInt(reader.ReadUInt32());
 
-                    using (var stream = new MemoryStream(File.ReadAllBytes(file)))
-                    using (var reader = new BinaryReader(stream))
+                    reader.BaseStream.Position = 0;
+                    switch (chunkId)
                     {
-                        var chunkId = (Chunk)FlipUInt(reader.ReadUInt32());
+                        case Chunk.MD21:
+                            var m2Reader = new M2Reader(reader);
+                            var pathName = Names.GetPathFromName(m2Reader.GetName());
 
-                        reader.BaseStream.Position = 0;
-                        switch (chunkId)
-                        {
-                            case Chunk.MD21:
-                                var m2Reader = new M2Reader(reader);
-                                var pathName = Names.GetPathFromName(m2Reader.GetName());
+                            AddedFileDataIds.TryAdd(fileDataId, $"{pathName}/{m2Reader.GetName()}.m2");
 
-                                Listfile.TryAdd(fileDataId, $"{pathName}/{m2Reader.GetName()}.m2");
+                            NameTextures(m2Reader);
+                            NameSkins(m2Reader);
+                            NameAnims(m2Reader);
+                            NameLodSkins(m2Reader);
 
-                                NameTextures(m2Reader);
-                                NameSkins(m2Reader);
-                                NameAnims(m2Reader);
-                                NameLodSkins(m2Reader);
-
-                                break;
-                        }
+                            break;
                     }
                 }
-                catch (Exception ex) { }
             });
 
             watch.Stop();
             Console.WriteLine($"Finished processing {files.Length} files in {watch.Elapsed}");
 
-            Console.WriteLine($"Writing listfile, {Listfile.Count} new entries");
+            Console.WriteLine($"Writing listfile, {AddedFileDataIds.Count} new entries");
             GenerateListfile();
             Console.ReadKey();
         }
@@ -92,15 +73,7 @@ namespace FilenameGuesser
                 string m2Name = m2Reader.GetName();
 
                 if (!Listfile.ContainsKey(texture))
-                    Listfile.TryAdd(texture, $"{pathName}/{m2Name}_{texture}.blp");
-                else  // Shared Texture
-                {
-                    var split = m2Reader.GetName().Split('_').ToList();
-                    split.Remove(split.Last());
-
-                    m2Name = string.Join('_', split.ToArray());
-                    Listfile[texture] = $"{pathName}/{m2Name}_{texture}.blp";
-                }
+                    AddedFileDataIds.TryAdd(texture, $"{pathName}/{m2Name}_{texture}.blp");
             }
         }
 
@@ -111,18 +84,22 @@ namespace FilenameGuesser
             {
                 var skinCount = skinList.IndexOf(skin);
                 var pathName = Names.GetPathFromName(m2Reader.GetName());
-                Listfile.TryAdd(skin, $"{pathName}/{m2Reader.GetName()}{skinCount:00}.skin");
+
+                if (!Listfile.ContainsKey(skin))
+                    AddedFileDataIds.TryAdd(skin, $"{pathName}/{m2Reader.GetName()}{skinCount:00}.skin");
             }
         }
 
         static void NameLodSkins(M2Reader m2Reader)
         {
             var lodSkinList = m2Reader.GetLodSkins();
-            foreach (var skin in lodSkinList)
+            foreach (var lodksin in lodSkinList)
             {
-                var skinCount = lodSkinList.IndexOf(skin);
+                var skinCount = lodSkinList.IndexOf(lodksin);
                 var pathName = Names.GetPathFromName(m2Reader.GetName());
-                Listfile.TryAdd(skin, $"{pathName}/{m2Reader.GetName()}_lod{skinCount:00}.skin");
+
+                if (!Listfile.ContainsKey(lodksin))
+                    AddedFileDataIds.TryAdd(lodksin, $"{pathName}/{m2Reader.GetName()}_lod{skinCount:00}.skin");
             }
         }
 
@@ -131,11 +108,10 @@ namespace FilenameGuesser
             var animList = m2Reader.GetAnims();
             foreach (var anim in animList)
             {
-                if (!FileXFileDataId.TryGetValue(anim.AnimFileId, out string animFilename))
-                    continue;
-
                 var pathName = Names.GetPathFromName(m2Reader.GetName());
-                Listfile.TryAdd(anim.AnimFileId, $"{pathName}/{m2Reader.GetName()}{anim.AnimId:0000}_{anim.SubAnimId:00}.anim");
+
+                if (!Listfile.ContainsKey(anim.AnimFileId))
+                    AddedFileDataIds.TryAdd(anim.AnimFileId, $"{pathName}/{m2Reader.GetName()}{anim.AnimId:0000}_{anim.SubAnimId:00}.anim");
             }
         }
 
@@ -148,10 +124,27 @@ namespace FilenameGuesser
         {
             using (var writer = new StreamWriter("listfile.csv"))
             {
-                foreach (var entry in Listfile)
-                    writer.WriteLine($"{entry.Key};{entry.Value}");
+                var keys = AddedFileDataIds.Keys.ToList();
+                keys.Sort();
+
+                foreach (var entry in keys)
+                    writer.WriteLine($"{entry};{AddedFileDataIds[entry]}");
 
                 writer.Close();
+            }
+        }
+
+        public static void ReadOriginalListfile()
+        {
+            using (var reader = new StreamReader("listfile_export.csv"))
+            {
+                while (!reader.EndOfStream)
+                {
+                    var line = reader.ReadLine();
+                    var lineSplit = line.Split(';');
+
+                    Listfile.TryAdd(uint.Parse(lineSplit[0]), lineSplit[1]);
+                }
             }
         }
     }
