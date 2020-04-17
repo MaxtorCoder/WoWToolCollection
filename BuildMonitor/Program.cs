@@ -1,5 +1,7 @@
 ﻿using BuildMonitor.IO;
 using BuildMonitor.Util;
+using Discord;
+using Discord.Webhook;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -13,6 +15,8 @@ namespace BuildMonitor
 {
     class Program
     {
+        private static DiscordWebhookClient webhookClient;
+
         private static readonly string tacturl = "http://us.patch.battle.net:1119";
         private static readonly bool isMonitoring = true;
 
@@ -22,12 +26,36 @@ namespace BuildMonitor
 
         static void Main(string[] args)
         {
+            if (args.Length < 2)
+            {
+                Console.WriteLine("Please input 2 parameters...");
+                Console.WriteLine("     -i [Discord Id]");
+                Console.WriteLine("     -t [Discord Token]");
+                return;
+            }
+
+            var id = string.Empty;
+            var token = string.Empty;
+            
+            if (args[0] == "-i")
+                id = args[1];
+            else if (args[2] == "-i")
+                id = args[3];
+            else if (args[0] == "-t")
+                token = args[1];
+            else if (args[2] == "-t")
+                token = args[3];
+
+            webhookClient = new DiscordWebhookClient($"https://discordapp.com/api/webhooks/{id}/{token}");
+            if (webhookClient == null)
+                throw new Exception("Webhook is null!");
+
             Directory.CreateDirectory("cache");
             
             foreach (var product in products)
                 ParseVersions(product, GetWebRequestStream($"{tacturl}/{product}/versions"));
             
-            Console.WriteLine("Monitoring the patch servers...");
+            Log("Monitoring the patch servers...");
             while (isMonitoring)
             {
                 Thread.Sleep(10000);
@@ -42,7 +70,7 @@ namespace BuildMonitor
         /// </summary>
         /// <param name="product"></param>
         /// <param name="stream"></param>
-        static void ParseVersions(string product, Stream stream)
+        static void ParseVersions(string product, MemoryStream stream)
         {
             using (var reader = new StreamReader(stream))
             {
@@ -72,34 +100,37 @@ namespace BuildMonitor
                 if (!BranchVersions.ContainsKey(product))
                     BranchVersions.Add(product, versions.BuildId);
 
-                // Copy the current stream to the MemoryStream
-                // so we can convert it to raw bytes.
-                var memStream = new MemoryStream();
-                stream.CopyTo(memStream);
-
-                if (BranchVersions[product] != versions.BuildId)
+                try
                 {
-                    var buildId = BranchVersions[product];
-                    var oldVersion = BranchVersionInfo[buildId];
+                    if (BranchVersions[product] != versions.BuildId)
+                    {
+                        var buildId = BranchVersions[product];
+                        var oldVersion = BranchVersionInfo[buildId];
 
-                    Console.WriteLine($"{product} got a new update!");
-                    Console.WriteLine($"BuildId       : {buildId} -> {versions.BuildId}");
-                    Console.WriteLine($"CDNConfig     : {oldVersion.CDNConfig.Substring(0, 5)} -> {versions.CDNConfig.Substring(0, 5)}");
-                    Console.WriteLine($"BuildConfig   : {oldVersion.BuildConfig.Substring(0, 5)} -> {versions.BuildConfig.Substring(0, 5)}");
-                    Console.WriteLine($"ProductConfig : {oldVersion.ProductConfig.Substring(0, 5)} -> {versions.ProductConfig.Substring(0, 5)}");
+                        Log($"{product} got a new update!");
+                        Log($"BuildId       : {buildId} -> {versions.BuildId}");
+                        Log($"CDNConfig     : {oldVersion.CDNConfig.Substring(0, 5)} -> {versions.CDNConfig.Substring(0, 5)}");
+                        Log($"BuildConfig   : {oldVersion.BuildConfig.Substring(0, 5)} -> {versions.BuildConfig.Substring(0, 5)}");
+                        Log($"ProductConfig : {oldVersion.ProductConfig.Substring(0, 5)} -> {versions.ProductConfig.Substring(0, 5)}");
 
-                    File.Delete($"cache/{product}_{oldVersion.BuildId}.versions");
-                    File.WriteAllBytes($"cache/{product}_{versions.BuildId}.versions", memStream.ToArray());
+                        File.Delete($"cache/{product}_{oldVersion.BuildId}.versions");
+                        File.WriteAllBytes($"cache/{product}_{versions.BuildId}.versions", stream.ToArray());
 
-                    Console.WriteLine($"Getting 'root' from '{versions.BuildConfig.Substring(0, 5)}'");
-                    var oldRoot = BuildConfigToRoot(GetWebRequestStream($"http://us.cdn.blizzard.com/tpr/{product}/config/{oldVersion.BuildConfig.Substring(0, 2)}/{oldVersion.BuildConfig.Substring(2, 2)}/{oldVersion.BuildConfig}"));
-                    var newRoot = BuildConfigToRoot(GetWebRequestStream($"http://us.cdn.blizzard.com/tpr/{product}/config/{versions.BuildConfig.Substring(0, 2)}/{versions.BuildConfig.Substring(2, 2)}/{versions.BuildConfig}"));
+                        Console.WriteLine($"Getting 'root' from '{versions.BuildConfig.Substring(0, 5)}'");
+                        var oldRoot = BuildConfigToRoot(GetWebRequestStream($"http://us.cdn.blizzard.com/tpr/{product}/config/{oldVersion.BuildConfig.Substring(0, 2)}/{oldVersion.BuildConfig.Substring(2, 2)}/{oldVersion.BuildConfig}"));
+                        var newRoot = BuildConfigToRoot(GetWebRequestStream($"http://us.cdn.blizzard.com/tpr/{product}/config/{versions.BuildConfig.Substring(0, 2)}/{versions.BuildConfig.Substring(2, 2)}/{versions.BuildConfig}"));
 
-                    DiffRoot(oldRoot, newRoot);
+                        DiffRoot(oldRoot, newRoot);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Log(ex.ToString());
+                    return;
                 }
 
                 if (!File.Exists($"cache/{product}_{versions.BuildId}.versions"))
-                    File.WriteAllBytes($"cache/{product}_{versions.BuildId}.versions", memStream.ToArray());
+                    File.WriteAllBytes($"cache/{product}_{versions.BuildId}.versions", stream.ToArray());
             }
         }
 
@@ -112,48 +143,56 @@ namespace BuildMonitor
         /// <param name="newRoot"></param>
         static void DiffRoot(string oldRootHash, string newRootHash)
         {
-            var oldRootStream = GetWebRequestStream($"http://us.cdn.blizzard.com/tpr/wow/data/{oldRootHash.Substring(0, 2)}/{oldRootHash.Substring(2, 2)}/{oldRootHash}");
-            var newRootStream = GetWebRequestStream($"http://us.cdn.blizzard.com/tpr/wow/data/{newRootHash.Substring(0, 2)}/{newRootHash.Substring(2, 2)}/{newRootHash}");
-
-            var rootFromEntries = Root.ParseRoot(oldRootStream).FileDataIds;
-            var rootToEntries = Root.ParseRoot(newRootStream).FileDataIds;
-
-            var fromEntries = rootFromEntries.Keys.ToHashSet();
-            var toEntries = rootToEntries.Keys.ToHashSet();
-
-            var commonEntries = fromEntries.Intersect(toEntries);
-            var removedEntries = fromEntries.Except(commonEntries);
-            var addedEntries = toEntries.Except(commonEntries);
-
-            static RootEntry Prioritize(List<RootEntry> entries)
+            try
             {
-                var prioritized = entries.FirstOrDefault(subEntry =>
-                    subEntry.contentFlags.HasFlag(ContentFlags.LowViolence) == false &&
-                    (subEntry.localeFlags.HasFlag(LocaleFlags.All_WoW) || subEntry.localeFlags.HasFlag(LocaleFlags.enUS))
-                );
+                var oldRootStream = GetWebRequestStream($"http://us.cdn.blizzard.com/tpr/wow/data/{oldRootHash.Substring(0, 2)}/{oldRootHash.Substring(2, 2)}/{oldRootHash}");
+                var newRootStream = GetWebRequestStream($"http://us.cdn.blizzard.com/tpr/wow/data/{newRootHash.Substring(0, 2)}/{newRootHash.Substring(2, 2)}/{newRootHash}");
 
-                if (prioritized.fileDataId != 0)
-                    return prioritized;
-                else
-                    return entries.First();
+                var rootFromEntries = Root.ParseRoot(oldRootStream).FileDataIds;
+                var rootToEntries = Root.ParseRoot(newRootStream).FileDataIds;
+
+                var fromEntries = rootFromEntries.Keys.ToHashSet();
+                var toEntries = rootToEntries.Keys.ToHashSet();
+
+                var commonEntries = fromEntries.Intersect(toEntries);
+                var removedEntries = fromEntries.Except(commonEntries);
+                var addedEntries = toEntries.Except(commonEntries);
+
+                static RootEntry Prioritize(List<RootEntry> entries)
+                {
+                    var prioritized = entries.FirstOrDefault(subEntry =>
+                        subEntry.contentFlags.HasFlag(ContentFlags.LowViolence) == false &&
+                        (subEntry.localeFlags.HasFlag(LocaleFlags.All_WoW) || subEntry.localeFlags.HasFlag(LocaleFlags.enUS))
+                    );
+
+                    if (prioritized.fileDataId != 0)
+                        return prioritized;
+                    else
+                        return entries.First();
+                }
+
+                var addedFiles = addedEntries.Select(entry => rootToEntries[entry]).Select(Prioritize);
+                var removedFiles = removedEntries.Select(entry => rootFromEntries[entry]).Select(Prioritize);
+
+                var modifiedFiles = new List<RootEntry>();
+                foreach (var entry in commonEntries)
+                {
+                    var originalFile = Prioritize(rootFromEntries[entry]);
+                    var patchedFile = Prioritize(rootToEntries[entry]);
+
+                    if (originalFile.md5.Equals(patchedFile.md5))
+                        continue;
+
+                    modifiedFiles.Add(patchedFile);
+                }
+
+                Log($"Added: {addedFiles.Count()} Removed: {removedFiles.Count()} Modified: {modifiedFiles.Count()} Common: {commonEntries.Count()}");
             }
-
-            var addedFiles = addedEntries.Select(entry => rootToEntries[entry]).Select(Prioritize);
-            var removedFiles = removedEntries.Select(entry => rootFromEntries[entry]).Select(Prioritize);
-
-            var modifiedFiles = new List<RootEntry>();
-            foreach (var entry in commonEntries)
+            catch (Exception ex)
             {
-                var originalFile = Prioritize(rootFromEntries[entry]);
-                var patchedFile = Prioritize(rootToEntries[entry]);
-
-                if (originalFile.md5.Equals(patchedFile.md5))
-                    continue;
-
-                modifiedFiles.Add(patchedFile);
+                Log(ex.ToString());
+                return;
             }
-
-            Console.WriteLine($"Added: {addedFiles.Count()} Removed: {removedFiles.Count()} Modified: {modifiedFiles.Count()} Common: {commonEntries.Count()}");
         }
 
         /// <summary>
@@ -196,6 +235,16 @@ namespace BuildMonitor
             var response = client.GetByteArrayAsync(url).Result;
 
             return new MemoryStream(response);
+        }
+
+        /// <summary>
+        /// Log message to console and webhook
+        /// </summary>
+        /// <param name="message"></param>
+        public static void Log(string message)
+        {
+            Console.WriteLine(message);
+            webhookClient.SendMessageAsync(message);
         }
     }
 
