@@ -7,13 +7,16 @@ using System.Linq;
 using System.Threading.Tasks;
 using FilenameGuesser.Readers;
 using FilenameGuesser.Util;
+using DBFileReaderLib;
+using FilenameGuesser.DB2Structures;
 
 namespace FilenameGuesser
 {
     class Program
     {
-        private static string UnknownFolderPath = @"D:\Games\WoW\CASCExplorer\Work\unknown";
+        private static string UnknownFolderPath = @"D:\WoW\Tools\CASC\work\unknown";
         private static ConcurrentDictionary<uint, string> AddedFileDataIds = new ConcurrentDictionary<uint, string>();
+        private static ConcurrentDictionary<uint, string> FileDataIdXFilename = new ConcurrentDictionary<uint, string>();
         private static Dictionary<uint, string> Listfile = new Dictionary<uint, string>();
 
         static void Main(string[] args)
@@ -26,40 +29,59 @@ namespace FilenameGuesser
             watch.Start();
 
             Console.WriteLine($"Processing {files.Length} files...");
+            //foreach (var file in files)
             Parallel.ForEach(files, file =>
             {
                 var fileDataId = uint.Parse(Path.GetFileName(file).Split('_')[1]);
-
+                FileDataIdXFilename.TryAdd(fileDataId, file);
+            
                 using (var stream = new MemoryStream(File.ReadAllBytes(file)))
                 using (var reader = new BinaryReader(stream))
                 {
                     var chunkId = (Chunk)FlipUInt(reader.ReadUInt32());
-
+            
                     reader.BaseStream.Position = 0;
                     switch (chunkId)
                     {
                         case Chunk.MD21:
                             var m2Reader = new M2Reader(reader);
                             var pathName = Names.GetPathFromName(m2Reader.GetName());
-
-                            AddedFileDataIds.TryAdd(fileDataId, $"{pathName}/{m2Reader.GetName()}.m2");
-
+            
+                            AddToListfile(fileDataId, $"{pathName}/{m2Reader.GetName()}.m2");
+            
                             NameTextures(m2Reader);
                             NameSkins(m2Reader);
                             NameAnims(m2Reader);
                             NameLodSkins(m2Reader);
-
+            
                             break;
                     }
                 }
             });
 
             watch.Stop();
-            Console.WriteLine($"Finished processing {files.Length} files in {watch.Elapsed}");
+            Console.WriteLine($"Finished processing {files.Length} files in {watch.Elapsed}\n");
 
-            Console.WriteLine($"Writing listfile, {AddedFileDataIds.Count} new entries");
-            GenerateListfile();
-            Console.ReadKey();
+            // Read Map.db2
+            var oldMapStorage = new DBReader("Map_old.db2").GetRecords<Map>();
+            var newMapStorage = new DBReader("Map_new.db2").GetRecords<Map>();
+
+            foreach (var entry in newMapStorage)
+            {
+                if (!oldMapStorage.ContainsKey(entry.Key))
+                {
+                    Console.WriteLine($"New map: {entry.Value.MapName} with WDT {entry.Value.WdtFileDataId}");
+                    if (entry.Value.WdtFileDataId != 0 && !Listfile.ContainsKey(entry.Value.WdtFileDataId))
+                        Console.WriteLine($"{entry.Value.WdtFileDataId} does not exist in the listfile, yet.");
+
+                    if (entry.Value.WdtFileDataId != 0 && FileDataIdXFilename.ContainsKey(entry.Value.WdtFileDataId))
+                        Console.WriteLine($"{entry.Value.WdtFileDataId} exists in the current unknown file list.");
+                }
+            }
+
+            //Console.WriteLine($"Writing listfile, {AddedFileDataIds.Count} new entries");
+            //GenerateListfile();
+            //Console.ReadKey();
         }
 
         static void NameTextures(M2Reader m2Reader)
@@ -72,8 +94,7 @@ namespace FilenameGuesser
                 var pathName = Names.GetPathFromName(m2Reader.GetName());
                 string m2Name = m2Reader.GetName();
 
-                if (!Listfile.ContainsKey(texture))
-                    AddedFileDataIds.TryAdd(texture, $"{pathName}/{m2Name}_{texture}.blp");
+                AddToListfile(texture, $"{pathName}/{m2Name}_{texture}.blp");
             }
         }
 
@@ -85,8 +106,7 @@ namespace FilenameGuesser
                 var skinCount = skinList.IndexOf(skin);
                 var pathName = Names.GetPathFromName(m2Reader.GetName());
 
-                if (!Listfile.ContainsKey(skin))
-                    AddedFileDataIds.TryAdd(skin, $"{pathName}/{m2Reader.GetName()}{skinCount:00}.skin");
+                AddToListfile(skin, $"{pathName}/{m2Reader.GetName()}{skinCount:00}.skin");
             }
         }
 
@@ -98,8 +118,7 @@ namespace FilenameGuesser
                 var skinCount = lodSkinList.IndexOf(lodksin);
                 var pathName = Names.GetPathFromName(m2Reader.GetName());
 
-                if (!Listfile.ContainsKey(lodksin))
-                    AddedFileDataIds.TryAdd(lodksin, $"{pathName}/{m2Reader.GetName()}_lod{skinCount:00}.skin");
+                AddToListfile(lodksin, $"{pathName}/{m2Reader.GetName()}_lod{skinCount:00}.skin");
             }
         }
 
@@ -110,8 +129,7 @@ namespace FilenameGuesser
             {
                 var pathName = Names.GetPathFromName(m2Reader.GetName());
 
-                if (!Listfile.ContainsKey(anim.AnimFileId))
-                    AddedFileDataIds.TryAdd(anim.AnimFileId, $"{pathName}/{m2Reader.GetName()}{anim.AnimId:0000}_{anim.SubAnimId:00}.anim");
+                AddToListfile(anim.AnimFileId, $"{pathName}/{m2Reader.GetName()}{anim.AnimId:0000}_{anim.SubAnimId:00}.anim");
             }
         }
 
@@ -134,6 +152,17 @@ namespace FilenameGuesser
             }
         }
 
+        static void AddToListfile(uint fileDataId, string filename)
+        {
+            if (Listfile.TryGetValue(fileDataId, out var listfileFile))
+            {
+                if (listfileFile.Contains("unnamed"))
+                    AddedFileDataIds.TryAdd(fileDataId, filename);
+            }
+            else
+                AddedFileDataIds.TryAdd(fileDataId, filename);
+        }
+
         public static void ReadOriginalListfile()
         {
             using (var reader = new StreamReader("listfile_export.csv"))
@@ -143,7 +172,8 @@ namespace FilenameGuesser
                     var line = reader.ReadLine();
                     var lineSplit = line.Split(';');
 
-                    Listfile.TryAdd(uint.Parse(lineSplit[0]), lineSplit[1]);
+                    if (!Listfile.ContainsKey(uint.Parse(lineSplit[0])))
+                        Listfile.Add(uint.Parse(lineSplit[0]), lineSplit[1]);
                 }
             }
         }

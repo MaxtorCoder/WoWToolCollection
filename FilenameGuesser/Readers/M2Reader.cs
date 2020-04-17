@@ -22,7 +22,7 @@ namespace FilenameGuesser.Readers
         
         private void Process()
         {
-            var currentPos = 0l;
+            var currentPos = 0L;
 
             M2 = new M2();
             M2.AnimationFileDataIds = new List<AFID>();
