@@ -9,7 +9,7 @@ namespace BuildMonitor
 {
     class Program
     {
-        private static string[] products = { "wow", "wowt", "wow_beta", "wowv", "wowdev" };
+        private static string[] products = { "wow", "wowt", "wow_beta", "wowv", "wowdev", "wow_classic", "wow_classic_ptr", "wow_classic_beta" };
         private static string tacturl = "http://us.patch.battle.net:1119";
 
         private static Dictionary<string, uint> BranchVersions = new Dictionary<string, uint>();
