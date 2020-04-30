@@ -12,5 +12,10 @@ namespace FilenameGuesser.Util
                 Offset = reader.ReadUInt32()
             };
         }
+
+        public static uint FlipUInt(this uint n)
+        {
+            return (n << 24) | (((n >> 16) << 24) >> 16) | (((n << 16) >> 24) << 16) | (n >> 24);
+        }
     }
 }

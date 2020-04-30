@@ -14,9 +14,10 @@ namespace FilenameGuesser
 {
     class Program
     {
+        public static ConcurrentDictionary<uint, string> AddedFileDataIds = new ConcurrentDictionary<uint, string>();
+        public static ConcurrentDictionary<uint, string> FDIDFilename = new ConcurrentDictionary<uint, string>();
+
         private static string UnknownFolderPath = @"D:\WoW\Tools\CASC\work\unknown";
-        private static ConcurrentDictionary<uint, string> AddedFileDataIds = new ConcurrentDictionary<uint, string>();
-        private static ConcurrentDictionary<uint, string> FileDataIdXFilename = new ConcurrentDictionary<uint, string>();
         private static Dictionary<uint, string> Listfile = new Dictionary<uint, string>();
 
         static void Main(string[] args)
@@ -33,12 +34,12 @@ namespace FilenameGuesser
             Parallel.ForEach(files, file =>
             {
                 var fileDataId = uint.Parse(Path.GetFileName(file).Split('_')[1]);
-                FileDataIdXFilename.TryAdd(fileDataId, file);
+                FDIDFilename.TryAdd(fileDataId, file);
             
                 using (var stream = new MemoryStream(File.ReadAllBytes(file)))
                 using (var reader = new BinaryReader(stream))
                 {
-                    var chunkId = (Chunk)FlipUInt(reader.ReadUInt32());
+                    var chunkId = (Chunk)reader.ReadUInt32().FlipUInt();
             
                     reader.BaseStream.Position = 0;
                     switch (chunkId)
@@ -56,6 +57,10 @@ namespace FilenameGuesser
             
                             break;
                     }
+
+                    // Close the streams.
+                    reader.Close();
+                    stream.Close();
                 }
             });
 
@@ -70,18 +75,36 @@ namespace FilenameGuesser
             {
                 if (!oldMapStorage.ContainsKey(entry.Key))
                 {
-                    Console.WriteLine($"New map: {entry.Value.MapName} with WDT {entry.Value.WdtFileDataId}");
+                    Console.WriteLine($"New map: {entry.Value.Directory} ({entry.Value.MapName}) with WDT {entry.Value.WdtFileDataId}");
                     if (entry.Value.WdtFileDataId != 0 && !Listfile.ContainsKey(entry.Value.WdtFileDataId))
                         Console.WriteLine($"{entry.Value.WdtFileDataId} does not exist in the listfile, yet.");
 
-                    if (entry.Value.WdtFileDataId != 0 && FileDataIdXFilename.ContainsKey(entry.Value.WdtFileDataId))
+                    if (entry.Value.WdtFileDataId != 0 && FDIDFilename.TryGetValue(entry.Value.WdtFileDataId, out var wdtFilename))
+                    {
                         Console.WriteLine($"{entry.Value.WdtFileDataId} exists in the current unknown file list.");
+
+                        var wdt = new WDTReader(wdtFilename);
+                        wdt.ReadWDT();
+
+                        AddToListfile(entry.Value.WdtFileDataId, $"world/maps/{entry.Value.Directory}/{entry.Value.Directory}.wdt");
+                        foreach (var maid in wdt.MAIDs)
+                        {
+                            AddToListfile(maid.Value.RootADT,           $"world/maps/{entry.Value.Directory}/{entry.Value.Directory}_{maid.Key}.adt");
+                            AddToListfile(maid.Value.Obj0ADT,           $"world/maps/{entry.Value.Directory}/{entry.Value.Directory}_{maid.Key}_obj0.adt");
+                            AddToListfile(maid.Value.Obj1ADT,           $"world/maps/{entry.Value.Directory}/{entry.Value.Directory}_{maid.Key}_obj1.adt");
+                            AddToListfile(maid.Value.Tex0ADT,           $"world/maps/{entry.Value.Directory}/{entry.Value.Directory}_{maid.Key}_tex0.adt");
+                            AddToListfile(maid.Value.LodADT,            $"world/maps/{entry.Value.Directory}/{entry.Value.Directory}_{maid.Key}_lod.adt");
+                            AddToListfile(maid.Value.MapTexture,        $"world/maptextures/{entry.Value.Directory}/{entry.Value.Directory}_{maid.Key}.blp");
+                            AddToListfile(maid.Value.MapTextureN,       $"world/maptextures/{entry.Value.Directory}/{entry.Value.Directory}_{maid.Key}_n.blp");
+                            AddToListfile(maid.Value.MinimapTexture,    $"world/minimap/{entry.Value.Directory}/{entry.Value.Directory}_{maid.Key}.blp");
+                        }
+                    }
                 }
             }
 
-            //Console.WriteLine($"Writing listfile, {AddedFileDataIds.Count} new entries");
-            //GenerateListfile();
-            //Console.ReadKey();
+            Console.WriteLine($"Writing listfile, {AddedFileDataIds.Count} new entries");
+            GenerateListfile();
+            Console.ReadKey();
         }
 
         static void NameTextures(M2Reader m2Reader)
@@ -131,11 +154,6 @@ namespace FilenameGuesser
 
                 AddToListfile(anim.AnimFileId, $"{pathName}/{m2Reader.GetName()}{anim.AnimId:0000}_{anim.SubAnimId:00}.anim");
             }
-        }
-
-        public static uint FlipUInt(uint n)
-        {
-            return (n << 24) | (((n >> 16) << 24) >> 16) | (((n << 16) >> 24) << 16) | (n >> 24);
         }
 
         public static void GenerateListfile()
@@ -196,6 +214,9 @@ namespace FilenameGuesser
         LDV1 = 1279546929,
         SFID = 1397115204,
         TXID = 1415072068,
-        AFID = 1095125316
+        AFID = 1095125316,
+
+        // WDT Chunks
+        MAID = 1296124228,
     }
 }
