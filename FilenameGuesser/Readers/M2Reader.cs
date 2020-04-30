@@ -32,27 +32,27 @@ namespace FilenameGuesser.Readers
             
             while (currentPos < Reader.BaseStream.Length)
             {
-                var chunk = (Chunk) Program.FlipUInt(Reader.ReadUInt32());
-                var size = Reader.ReadUInt32();
+                var chunkId     = (Chunk)Reader.ReadUInt32().FlipUInt();
+                var chunkSize   = Reader.ReadUInt32();
 
-                currentPos = Reader.BaseStream.Position + size;
-                switch (chunk)
+                currentPos = Reader.BaseStream.Position + chunkSize;
+                switch (chunkId)
                 {
                     case Chunk.MD21:
                         skinCount = ReadMD21(Reader);
 
                         Reader.BaseStream.Position = 8;
-                        Skip(size);
+                        Skip(chunkSize);
                         break;
                     case Chunk.LDV1:
                         Reader.BaseStream.Position += 2;
                         lodCount = Reader.ReadUInt16() - 1u;
                         Reader.BaseStream.Position -= 4;
-                        Skip(size);
+                        Skip(chunkSize);
 
                         break;
                     case Chunk.TXID:
-                        var textureCount = size / 4;
+                        var textureCount = chunkSize / 4;
                         for (var i = 0; i < textureCount; ++i)
                             M2.TextureFileDataIds.Add(Reader.ReadUInt32());
 
@@ -66,7 +66,7 @@ namespace FilenameGuesser.Readers
 
                         break;
                     case Chunk.AFID:
-                        var animCount = size / 8;
+                        var animCount = chunkSize / 8;
                         for (var i = 0; i < animCount; ++i)
                         {
                             var afid = new AFID
@@ -80,7 +80,7 @@ namespace FilenameGuesser.Readers
 
                         break;
                     default:
-                        Skip(size);
+                        Skip(chunkSize);
                         break;
                 }
             }

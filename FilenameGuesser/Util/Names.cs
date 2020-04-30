@@ -56,6 +56,7 @@ namespace FilenameGuesser.Util
                 case "firearm":
                 case "glaive":
                 case "offhand":
+                case "wand":
                     return "item/objectcomponents/weapon";
                 case "shield":
                 case "buckler":
