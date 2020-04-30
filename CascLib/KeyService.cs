@@ -1,11 +1,8 @@
-﻿using BuildMonitor.Util;
-using System;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
-using System.Text;
 
-namespace BuildMonitor.IO.Crypt
+namespace CASCLib
 {
     public class KeyService
     {
@@ -191,7 +188,7 @@ namespace BuildMonitor.IO.Crypt
         {
             if (File.Exists("TactKey.csv"))
             {
-                using (var sr = new StreamReader("TactKey.csv"))
+                using (StreamReader sr = new StreamReader("TactKey.csv"))
                 {
                     string line;
 

@@ -17,4 +17,8 @@
     <PackageReference Include="Discord.Net.Webhook" Version="2.2.0" />
   </ItemGroup>
 
+  <ItemGroup>
+    <ProjectReference Include="..\CascLib\CascLib.csproj" />
+  </ItemGroup>
+
 </Project>

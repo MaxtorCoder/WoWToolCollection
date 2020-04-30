@@ -13,7 +13,9 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "FilenameGuesser", "Filename
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "DBFileReaderLib", "DBFileReaderLib\DBFileReaderLib.csproj", "{8C27C834-46D7-4EC8-BF23-1ACD96FC81D4}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "BuildMonitor", "BuildMonitor\BuildMonitor.csproj", "{37BF0AEA-16EA-443C-88AE-8B1882FF6C6C}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "BuildMonitor", "BuildMonitor\BuildMonitor.csproj", "{37BF0AEA-16EA-443C-88AE-8B1882FF6C6C}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "CascLib", "CascLib\CascLib.csproj", "{0351AF2B-21F6-430B-85DA-1FF054F0F0AB}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -45,6 +47,10 @@ Global
 		{37BF0AEA-16EA-443C-88AE-8B1882FF6C6C}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{37BF0AEA-16EA-443C-88AE-8B1882FF6C6C}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{37BF0AEA-16EA-443C-88AE-8B1882FF6C6C}.Release|Any CPU.Build.0 = Release|Any CPU
+		{0351AF2B-21F6-430B-85DA-1FF054F0F0AB}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{0351AF2B-21F6-430B-85DA-1FF054F0F0AB}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{0351AF2B-21F6-430B-85DA-1FF054F0F0AB}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{0351AF2B-21F6-430B-85DA-1FF054F0F0AB}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

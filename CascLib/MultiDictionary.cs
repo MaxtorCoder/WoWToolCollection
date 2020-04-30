@@ -1,6 +1,6 @@
 ﻿using System.Collections.Generic;
 
-namespace BuildMonitor.Util
+namespace CASCLib
 {
     public class MultiDictionary<K, V> : Dictionary<K, List<V>>
     {
@@ -12,8 +12,10 @@ namespace BuildMonitor.Util
             }
             else
             {
-                hset = new List<V>();
-                hset.Add(value);
+                hset = new List<V>
+                {
+                    value
+                };
                 base[key] = hset;
             }
         }

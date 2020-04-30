@@ -3,7 +3,7 @@ using System.Diagnostics;
 using System.Security.Cryptography;
 using System.Text;
 
-namespace BuildMonitor.IO.Crypt
+namespace CASCLib
 {
     /// <summary>
     /// Implements the Salsa20 stream encryption cipher, as defined at http://cr.yp.to/snuffle.html.
@@ -127,15 +127,12 @@ namespace BuildMonitor.IO.Crypt
                 throw new CryptographicException("Invalid IV size; it must be 8 bytes.");
         }
 
-        private static Random rnd = new Random();
-
         // Returns a new byte array containing the specified number of random bytes.
         private static byte[] GetRandomBytes(int byteCount)
         {
             byte[] bytes = new byte[byteCount];
-            rnd.NextBytes(bytes);
-            //using (RandomNumberGenerator rng = new RNGCryptoServiceProvider())
-            //    rng.GetBytes(bytes);
+            using (RandomNumberGenerator rng = new RNGCryptoServiceProvider())
+                rng.GetBytes(bytes);
             return bytes;
         }
 
@@ -336,8 +333,8 @@ namespace BuildMonitor.IO.Crypt
                 }
             }
 
-            static readonly byte[] c_sigma = System.Text.Encoding.ASCII.GetBytes("expand 32-byte k");
-            static readonly byte[] c_tau = System.Text.Encoding.ASCII.GetBytes("expand 16-byte k");
+            static readonly byte[] c_sigma = Encoding.ASCII.GetBytes("expand 32-byte k");
+            static readonly byte[] c_tau = Encoding.ASCII.GetBytes("expand 16-byte k");
 
             uint[] m_state;
             readonly int m_rounds;

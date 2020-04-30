@@ -1,4 +1,5 @@
 ﻿using BuildMonitor.Util;
+using CASCLib;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -53,11 +54,11 @@ namespace BuildMonitor.IO
                     var idx = 0;
                     for (var i = 0; i < count; ++i)
                     {
-                        rootEntries[i].localeFlags  = localeFlags;
-                        rootEntries[i].contentFlags = contentFlags;
+                        rootEntries[i].LocaleFlags  = localeFlags;
+                        rootEntries[i].ContentFlags = contentFlags;
 
                         fileDataIds[i] = idx + reader.ReadInt32();
-                        rootEntries[i].fileDataId = (uint)fileDataIds[i];
+                        rootEntries[i].FileDataId = (uint)fileDataIds[i];
                         idx = fileDataIds[i] + 1;
                     }
 
@@ -65,33 +66,34 @@ namespace BuildMonitor.IO
                     {
                         for (var i = 0; i < count; ++i)
                         {
-                            rootEntries[i].md5      = reader.Read<MD5Hash>();
-                            rootEntries[i].lookup   = reader.ReadUInt64();
-                            rootfile.Lookup.Add(rootEntries[i].lookup, rootEntries[i]);
-                            rootfile.FileDataIds.Add(rootEntries[i].fileDataId, rootEntries[i]);
+                            rootEntries[i].MD5      = reader.Read<MD5Hash>();
+                            rootEntries[i].Lookup   = reader.ReadUInt64();
+
+                            rootfile.Lookup.Add(rootEntries[i].Lookup, rootEntries[i]);
+                            rootfile.FileDataIds.Add(rootEntries[i].FileDataId, rootEntries[i]);
                         }
                     }
                     else
                     {
                         for (var i = 0; i < count; ++i)
-                            rootEntries[i].md5 = reader.Read<MD5Hash>();
+                            rootEntries[i].MD5 = reader.Read<MD5Hash>();
 
                         for (var i = 0; i < count; ++i)
                         {
-                            if (contentFlags.HasFlag(ContentFlags.NoNames))
+                            if (contentFlags.HasFlag(ContentFlags.NoNameHash))
                             {
-                                rootEntries[i].lookup = 0;
+                                rootEntries[i].Lookup = 0;
                                 unnamedCount++;
                             }
                             else
                             {
-                                rootEntries[i].lookup = reader.ReadUInt64();
+                                rootEntries[i].Lookup = reader.ReadUInt64();
                                 namedCount++;
 
-                                rootfile.Lookup.Add(rootEntries[i].lookup, rootEntries[i]);
+                                rootfile.Lookup.Add(rootEntries[i].Lookup, rootEntries[i]);
                             }
 
-                            rootfile.FileDataIds.Add(rootEntries[i].fileDataId, rootEntries[i]);
+                            rootfile.FileDataIds.Add(rootEntries[i].FileDataId, rootEntries[i]);
                         }
                     }
                 }
@@ -99,5 +101,11 @@ namespace BuildMonitor.IO
 
             return rootfile;
         }
+    }
+
+    public class RootFile
+    {
+        public MultiDictionary<ulong, RootEntry> Lookup;
+        public MultiDictionary<uint, RootEntry> FileDataIds;
     }
 }

@@ -1,6 +1,5 @@
 ﻿using BuildMonitor.IO;
-using BuildMonitor.Util;
-using Discord;
+using CASCLib;
 using Discord.Webhook;
 using System;
 using System.Collections.Generic;
@@ -9,7 +8,6 @@ using System.Linq;
 using System.Net;
 using System.Net.Http;
 using System.Threading;
-using System.Web;
 
 namespace BuildMonitor
 {
@@ -97,7 +95,7 @@ namespace BuildMonitor
                         var oldVersion = BranchVersionInfo[buildId];
 
                         Log($"`{product}` got a new update!\n\n" +
-                            $"```\nBuildId       : {buildId} -> {versions.BuildId}\n" + 
+                            $"```BuildId       : {buildId} -> {versions.BuildId}\n" + 
                             $"CDNConfig     : {oldVersion.CDNConfig.Substring(0, 6)} -> {versions.CDNConfig.Substring(0, 6)}\n" +
                             $"BuildConfig   : {oldVersion.BuildConfig.Substring(0, 6)} -> {versions.BuildConfig.Substring(0, 6)}\n" +
                             $"ProductConfig : {oldVersion.ProductConfig.Substring(0, 6)} -> {versions.ProductConfig.Substring(0, 6)}```");
@@ -113,13 +111,18 @@ namespace BuildMonitor
                         var oldRoot = BuildConfigToRoot(RequestCDN($"tpr/wow/config/{oldVersion.BuildConfig.Substring(0, 2)}/{oldVersion.BuildConfig.Substring(2, 2)}/{oldVersion.BuildConfig}"));
                         var newRoot = BuildConfigToRoot(RequestCDN($"tpr/wow/config/{versions.BuildConfig.Substring(0, 2)}/{versions.BuildConfig.Substring(2, 2)}/{versions.BuildConfig}"));
 
-                        DiffRoot(oldRoot, newRoot);
+                        // Update the product with the new Build Id
                         BranchVersions[product] = versions.BuildId;
+
+                        var addedFiles = DiffRoot(oldRoot.Item1, newRoot.Item1);
+
+                        var cascHandler = CASCHandler.OpenSpecificStorage("wow_beta", versions.BuildConfig, newRoot.Item2);
+                        cascHandler.Root.SetFlags(LocaleFlags.All_WoW);
                     }
                 }
                 catch (Exception ex)
                 {
-                    Log(ex.ToString());
+                    Log(ex.ToString(), true);
                     return;
                 }
 
@@ -135,7 +138,7 @@ namespace BuildMonitor
         /// </summary>
         /// <param name="oldRoot"></param>
         /// <param name="newRoot"></param>
-        static void DiffRoot(string oldRootHash, string newRootHash)
+        static IEnumerable<RootEntry> DiffRoot(string oldRootHash, string newRootHash)
         {
             try
             {
@@ -144,7 +147,7 @@ namespace BuildMonitor
                 if (oldRootStream == null || newRootStream == null)
                 {
                     Log("Root is null", true);
-                    return;
+                    return new List<RootEntry>();
                 }
 
                 var rootFromEntries = Root.ParseRoot(oldRootStream).FileDataIds;
@@ -160,11 +163,11 @@ namespace BuildMonitor
                 static RootEntry Prioritize(List<RootEntry> entries)
                 {
                     var prioritized = entries.FirstOrDefault(subEntry =>
-                        subEntry.contentFlags.HasFlag(ContentFlags.LowViolence) == false &&
-                        (subEntry.localeFlags.HasFlag(LocaleFlags.All_WoW) || subEntry.localeFlags.HasFlag(LocaleFlags.enUS))
+                        subEntry.ContentFlags.HasFlag(ContentFlags.Alternate) == false &&
+                        (subEntry.LocaleFlags.HasFlag(LocaleFlags.All_WoW) || subEntry.LocaleFlags.HasFlag(LocaleFlags.enUS))
                     );
 
-                    if (prioritized.fileDataId != 0)
+                    if (prioritized.FileDataId != 0)
                         return prioritized;
                     else
                         return entries.First();
@@ -179,18 +182,19 @@ namespace BuildMonitor
                     var originalFile = Prioritize(rootFromEntries[entry]);
                     var patchedFile = Prioritize(rootToEntries[entry]);
 
-                    if (originalFile.md5.Equals(patchedFile.md5))
+                    if (originalFile.MD5.Equals(patchedFile.MD5))
                         continue;
 
                     modifiedFiles.Add(patchedFile);
                 }
 
                 Log($"Added: **{addedFiles.Count()}**\nRemoved: **{removedFiles.Count()}**\nModified: **{modifiedFiles.Count()}**");
+                return addedFiles;
             }
             catch (Exception ex)
             {
                 Log(ex.ToString(), true);
-                return;
+                return new List<RootEntry>();
             }
         }
 
@@ -199,10 +203,10 @@ namespace BuildMonitor
         /// </summary>
         /// <param name="stream"></param>
         /// <returns></returns>
-        static string BuildConfigToRoot(MemoryStream stream)
+        static (string, string) BuildConfigToRoot(MemoryStream stream)
         {          
             if (stream == null)
-                return string.Empty;
+                return (string.Empty, string.Empty);
 
             using (var reader = new StreamReader(stream))
             {
@@ -220,14 +224,14 @@ namespace BuildMonitor
                 if (encodingStream == null)
                 {
                     Log("Encoding stream is null", true);
-                    return string.Empty;
+                    return (string.Empty, string.Empty);
                 }
 
                 Encoding.ParseEncoding(encodingStream);
                 if (Encoding.EncodingDictionary.TryGetValue(rootContentHash.ToByteArray().ToMD5(), out var entry))
-                    return entry.ToHexString().ToLower();
+                    return (entry.ToHexString().ToLower(), encoding.ToLower());
                 else
-                    return string.Empty;
+                    return (string.Empty, string.Empty);
             }
         }
 
@@ -296,10 +300,11 @@ namespace BuildMonitor
         /// <param name="message"></param>
         public static void Log(string message, bool error = false)
         {
-            Console.WriteLine(message.Replace("`", ""));
+            // Replace ` and * because fck that
+            Console.WriteLine(message.Replace("`", "").Replace("*", ""));
 
             if (error)
-                webhookClient.SendMessageAsync($"@MaxtorCoder#1056 : ```{message}```");
+                webhookClient.SendMessageAsync($"<@376821416105869315> : ```{message}```");
             else
                 webhookClient.SendMessageAsync(message);
         }
