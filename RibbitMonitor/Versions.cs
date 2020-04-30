@@ -1,9 +1,4 @@
-﻿using Ribbit.Constants;
-using System;
-using System.Collections.Generic;
-using System.Text;
-
-namespace RibbitMonitor
+﻿namespace RibbitMonitor
 {
     public class Versions
     {

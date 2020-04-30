@@ -5,7 +5,6 @@ using System.Text;
 using System.Linq;
 
 using MimeKit;
-using MimeKit.Cryptography;
 
 namespace Ribbit.Protocol
 {

@@ -1,5 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.IO;
 using System.Text;
 using FilenameGuesser.Util;
@@ -13,13 +12,20 @@ namespace FilenameGuesser.Readers
 
         private uint lodCount = 0;
         private uint skinCount = 0;
-        
+
+        /// <summary>
+        /// Create a new instance of <see cref="M2Reader"/>
+        /// </summary>
+        /// <param name="reader"></param>
         public M2Reader(BinaryReader reader)
         {
             Reader = reader;
             Process();
         }
-        
+
+        /// <summary>
+        /// Process the M2 Files
+        /// </summary>
         private void Process()
         {
             var currentPos = 0L;

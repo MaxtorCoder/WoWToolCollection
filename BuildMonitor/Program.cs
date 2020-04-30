@@ -90,35 +90,7 @@ namespace BuildMonitor
                 try
                 {
                     if (BranchVersions[product] != versions.BuildId)
-                    {
-                        var buildId = BranchVersions[product];
-                        var oldVersion = BranchVersionInfo[buildId];
-
-                        Log($"`{product}` got a new update!\n\n" +
-                            $"```BuildId       : {buildId} -> {versions.BuildId}\n" + 
-                            $"CDNConfig     : {oldVersion.CDNConfig.Substring(0, 6)} -> {versions.CDNConfig.Substring(0, 6)}\n" +
-                            $"BuildConfig   : {oldVersion.BuildConfig.Substring(0, 6)} -> {versions.BuildConfig.Substring(0, 6)}\n" +
-                            $"ProductConfig : {oldVersion.ProductConfig.Substring(0, 6)} -> {versions.ProductConfig.Substring(0, 6)}```");
-
-                        File.Delete($"cache/{product}_{oldVersion.BuildId}.versions");
-                        File.WriteAllBytes($"cache/{product}_{versions.BuildId}.versions", stream.ToArray());
-
-                        // Check if the products are not encrypted..
-                        if (product == "wowdev" || product == "wowv")
-                            return;
-
-                        Console.WriteLine($"Getting 'root' from '{versions.BuildConfig.Substring(0, 6)}'");
-                        var oldRoot = BuildConfigToRoot(RequestCDN($"tpr/wow/config/{oldVersion.BuildConfig.Substring(0, 2)}/{oldVersion.BuildConfig.Substring(2, 2)}/{oldVersion.BuildConfig}"));
-                        var newRoot = BuildConfigToRoot(RequestCDN($"tpr/wow/config/{versions.BuildConfig.Substring(0, 2)}/{versions.BuildConfig.Substring(2, 2)}/{versions.BuildConfig}"));
-
-                        // Update the product with the new Build Id
-                        BranchVersions[product] = versions.BuildId;
-
-                        var addedFiles = DiffRoot(oldRoot.Item1, newRoot.Item1);
-
-                        var cascHandler = CASCHandler.OpenSpecificStorage("wow_beta", versions.BuildConfig, newRoot.Item2);
-                        cascHandler.Root.SetFlags(LocaleFlags.All_WoW);
-                    }
+                        HandleNewVersion(versions, product, stream);
                 }
                 catch (Exception ex)
                 {
@@ -133,7 +105,6 @@ namespace BuildMonitor
 
         /// <summary>
         /// Diff the 2 root files.
-        /// 
         /// Completely taken from https://github.com/Marlamin/CASCToolHost/blob/master/CASCToolHost/Controllers/RootController.cs#L59
         /// </summary>
         /// <param name="oldRoot"></param>
@@ -196,6 +167,43 @@ namespace BuildMonitor
                 Log(ex.ToString(), true);
                 return new List<RootEntry>();
             }
+        }
+
+        /// <summary>
+        /// Handle the new version for the product.
+        /// </summary>
+        /// <param name="versions"></param>
+        /// <param name="product"></param>
+        /// <param name="stream"></param>
+        static void HandleNewVersion(VersionsInfo versions, string product, MemoryStream stream)
+        {
+            var buildId = BranchVersions[product];
+            var oldVersion = BranchVersionInfo[buildId];
+
+            Log($"`{product}` got a new update!\n\n" +
+                $"```BuildId       : {buildId} -> {versions.BuildId}\n" +
+                $"CDNConfig     : {oldVersion.CDNConfig:6} -> {versions.CDNConfig:6}\n" +
+                $"BuildConfig   : {oldVersion.BuildConfig:6} -> {versions.BuildConfig:6}\n" +
+                $"ProductConfig : {oldVersion.ProductConfig:6} -> {versions.ProductConfig:6}```");
+
+            File.Delete($"cache/{product}_{oldVersion.BuildId}.versions");
+            File.WriteAllBytes($"cache/{product}_{versions.BuildId}.versions", stream.ToArray());
+
+            // Check if the products are not encrypted..
+            if (product == "wowdev" || product == "wowv")
+                return;
+
+            Console.WriteLine($"Getting 'root' from '{versions.BuildConfig:6}'");
+            var oldRoot = BuildConfigToRoot(RequestCDN($"tpr/wow/config/{oldVersion.BuildConfig:2}/{oldVersion.BuildConfig.Substring(2, 2)}/{oldVersion.BuildConfig}"));
+            var newRoot = BuildConfigToRoot(RequestCDN($"tpr/wow/config/{versions.BuildConfig:2}/{versions.BuildConfig.Substring(2, 2)}/{versions.BuildConfig}"));
+
+            // Update the product with the new Build Id
+            BranchVersions[product] = versions.BuildId;
+
+            var addedFiles = DiffRoot(oldRoot.Item1, newRoot.Item1);
+
+            var cascHandler = CASCHandler.OpenSpecificStorage("wow_beta", versions.BuildConfig, newRoot.Item2);
+            cascHandler.Root.SetFlags(LocaleFlags.All_WoW);
         }
 
         /// <summary>

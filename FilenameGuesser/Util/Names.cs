@@ -1,8 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Text;
-
-namespace FilenameGuesser.Util
+﻿namespace FilenameGuesser.Util
 {
     public static class Names
     {

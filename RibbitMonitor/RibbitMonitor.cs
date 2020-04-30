@@ -1,14 +1,9 @@
 ﻿using Ribbit.Constants;
 using Ribbit.Protocol;
 using Ribbit.Parsing;
-using RibbitMonitor.Discord;
 
 using System;
-using System.IO;
-using System.Threading;
 using System.Collections.Generic;
-using System.Linq;
-using RibbitMonitor.MySql;
 
 namespace RibbitMonitor
 {

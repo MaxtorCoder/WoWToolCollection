@@ -1,8 +1,6 @@
 ﻿using FilenameGuesser.Util;
-using System;
 using System.Collections.Generic;
 using System.IO;
-using System.Text;
 
 namespace FilenameGuesser.Readers
 {
@@ -12,11 +10,18 @@ namespace FilenameGuesser.Readers
 
         private string path;
 
+        /// <summary>
+        /// Create a new instance of <see cref="WDTReader"/>
+        /// </summary>
+        /// <param name="path"></param>
         public WDTReader(string path)
         {
             this.path = path;
         }
 
+        /// <summary>
+        /// Read the WDT file.
+        /// </summary>
         public void ReadWDT()
         {
             using (var stream = new MemoryStream(File.ReadAllBytes(path)))
