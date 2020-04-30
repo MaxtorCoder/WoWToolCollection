@@ -20,37 +20,22 @@ namespace BuildMonitor
         private static readonly string tacturl = "http://us.patch.battle.net:1119";
         private static readonly bool isMonitoring = true;
 
+        private static string[] cdnUrls = { "http://level3.blizzard.com", "http://us.cdn.blizzard.com", "http://blzddist1-a.akamaihd.net" };
         private static string[] products = { "wow", "wowt", "wow_beta", "wowv", "wowdev", "wow_classic", "wow_classic_ptr", "wow_classic_beta" };
         private static Dictionary<string, uint> BranchVersions = new Dictionary<string, uint>();
         private static Dictionary<uint, VersionsInfo> BranchVersionInfo = new Dictionary<uint, VersionsInfo>(); 
 
         static void Main(string[] args)
         {
-            if (args.Length < 2)
-            {
-                Console.WriteLine("Please input 2 parameters...");
-                Console.WriteLine("     -i [Discord Id]");
-                Console.WriteLine("     -t [Discord Token]");
-                return;
-            }
-
-            var id = string.Empty;
-            var token = string.Empty;
-            
-            if (args[0] == "-i")
-                id = args[1];
-            else if (args[2] == "-i")
-                id = args[3];
-            else if (args[0] == "-t")
-                token = args[1];
-            else if (args[2] == "-t")
-                token = args[3];
-
-            webhookClient = new DiscordWebhookClient($"https://discordapp.com/api/webhooks/{id}/{token}");
+            webhookClient = new DiscordWebhookClient(File.ReadAllText("webhook.txt"));
             if (webhookClient == null)
                 throw new Exception("Webhook is null!");
 
             Directory.CreateDirectory("cache");
+
+            // Delete all files on startup.
+            foreach (var file in Directory.GetFiles("cache"))
+                File.Delete(file);
             
             foreach (var product in products)
                 ParseVersions(product, GetWebRequestStream($"{tacturl}/{product}/versions"));
@@ -58,10 +43,14 @@ namespace BuildMonitor
             Log("Monitoring the patch servers...");
             while (isMonitoring)
             {
-                Thread.Sleep(10000);
+                Thread.Sleep(60000);
             
                 foreach (var product in products)
-                    ParseVersions(product, GetWebRequestStream($"{tacturl}/{product}/versions"));
+                {
+                    var stream = GetWebRequestStream($"{tacturl}/{product}/versions");
+                    if (stream != null)
+                        ParseVersions(product, stream);
+                }
             }
         }
 
@@ -107,20 +96,25 @@ namespace BuildMonitor
                         var buildId = BranchVersions[product];
                         var oldVersion = BranchVersionInfo[buildId];
 
-                        Log($"{product} got a new update!");
-                        Log($"BuildId       : {buildId} -> {versions.BuildId}");
-                        Log($"CDNConfig     : {oldVersion.CDNConfig.Substring(0, 5)} -> {versions.CDNConfig.Substring(0, 5)}");
-                        Log($"BuildConfig   : {oldVersion.BuildConfig.Substring(0, 5)} -> {versions.BuildConfig.Substring(0, 5)}");
-                        Log($"ProductConfig : {oldVersion.ProductConfig.Substring(0, 5)} -> {versions.ProductConfig.Substring(0, 5)}");
+                        Log($"`{product}` got a new update!\n\n" +
+                            $"```\nBuildId       : {buildId} -> {versions.BuildId}\n" + 
+                            $"CDNConfig     : {oldVersion.CDNConfig.Substring(0, 6)} -> {versions.CDNConfig.Substring(0, 6)}\n" +
+                            $"BuildConfig   : {oldVersion.BuildConfig.Substring(0, 6)} -> {versions.BuildConfig.Substring(0, 6)}\n" +
+                            $"ProductConfig : {oldVersion.ProductConfig.Substring(0, 6)} -> {versions.ProductConfig.Substring(0, 6)}```");
 
                         File.Delete($"cache/{product}_{oldVersion.BuildId}.versions");
                         File.WriteAllBytes($"cache/{product}_{versions.BuildId}.versions", stream.ToArray());
 
-                        Console.WriteLine($"Getting 'root' from '{versions.BuildConfig.Substring(0, 5)}'");
-                        var oldRoot = BuildConfigToRoot(GetWebRequestStream($"http://us.cdn.blizzard.com/tpr/{product}/config/{oldVersion.BuildConfig.Substring(0, 2)}/{oldVersion.BuildConfig.Substring(2, 2)}/{oldVersion.BuildConfig}"));
-                        var newRoot = BuildConfigToRoot(GetWebRequestStream($"http://us.cdn.blizzard.com/tpr/{product}/config/{versions.BuildConfig.Substring(0, 2)}/{versions.BuildConfig.Substring(2, 2)}/{versions.BuildConfig}"));
+                        // Check if the products are not encrypted..
+                        if (product == "wowdev" || product == "wowv")
+                            return;
+
+                        Console.WriteLine($"Getting 'root' from '{versions.BuildConfig.Substring(0, 6)}'");
+                        var oldRoot = BuildConfigToRoot(RequestCDN($"tpr/wow/config/{oldVersion.BuildConfig.Substring(0, 2)}/{oldVersion.BuildConfig.Substring(2, 2)}/{oldVersion.BuildConfig}"));
+                        var newRoot = BuildConfigToRoot(RequestCDN($"tpr/wow/config/{versions.BuildConfig.Substring(0, 2)}/{versions.BuildConfig.Substring(2, 2)}/{versions.BuildConfig}"));
 
                         DiffRoot(oldRoot, newRoot);
+                        BranchVersions[product] = versions.BuildId;
                     }
                 }
                 catch (Exception ex)
@@ -129,8 +123,8 @@ namespace BuildMonitor
                     return;
                 }
 
-                if (!File.Exists($"cache/{product}_{versions.BuildId}.versions"))
-                    File.WriteAllBytes($"cache/{product}_{versions.BuildId}.versions", stream.ToArray());
+                File.Delete($"cache/{product}_{versions.BuildId}.versions");
+                File.WriteAllBytes($"cache/{product}_{versions.BuildId}.versions", stream.ToArray());
             }
         }
 
@@ -145,8 +139,13 @@ namespace BuildMonitor
         {
             try
             {
-                var oldRootStream = GetWebRequestStream($"http://us.cdn.blizzard.com/tpr/wow/data/{oldRootHash.Substring(0, 2)}/{oldRootHash.Substring(2, 2)}/{oldRootHash}");
-                var newRootStream = GetWebRequestStream($"http://us.cdn.blizzard.com/tpr/wow/data/{newRootHash.Substring(0, 2)}/{newRootHash.Substring(2, 2)}/{newRootHash}");
+                var oldRootStream = RequestCDN($"tpr/wow/data/{oldRootHash.Substring(0, 2)}/{oldRootHash.Substring(2, 2)}/{oldRootHash}");
+                var newRootStream = RequestCDN($"tpr/wow/data/{newRootHash.Substring(0, 2)}/{newRootHash.Substring(2, 2)}/{newRootHash}");
+                if (oldRootStream == null || newRootStream == null)
+                {
+                    Log("Root is null", true);
+                    return;
+                }
 
                 var rootFromEntries = Root.ParseRoot(oldRootStream).FileDataIds;
                 var rootToEntries = Root.ParseRoot(newRootStream).FileDataIds;
@@ -186,11 +185,11 @@ namespace BuildMonitor
                     modifiedFiles.Add(patchedFile);
                 }
 
-                Log($"Added: {addedFiles.Count()} Removed: {removedFiles.Count()} Modified: {modifiedFiles.Count()} Common: {commonEntries.Count()}");
+                Log($"Added: **{addedFiles.Count()}**\nRemoved: **{removedFiles.Count()}**\nModified: **{modifiedFiles.Count()}**");
             }
             catch (Exception ex)
             {
-                Log(ex.ToString());
+                Log(ex.ToString(), true);
                 return;
             }
         }
@@ -201,7 +200,10 @@ namespace BuildMonitor
         /// <param name="stream"></param>
         /// <returns></returns>
         static string BuildConfigToRoot(MemoryStream stream)
-        {
+        {          
+            if (stream == null)
+                return string.Empty;
+
             using (var reader = new StreamReader(stream))
             {
                 reader.ReadLine();
@@ -214,9 +216,14 @@ namespace BuildMonitor
                     reader.ReadLine();
 
                 var encoding = reader.ReadLine().Split(new char[] { ' ', '=' }, StringSplitOptions.RemoveEmptyEntries)[2];
-                var encodingStream = GetWebRequestStream($"http://us.cdn.blizzard.com/tpr/wow/data/{encoding.Substring(0,2)}/{encoding.Substring(2,2)}/{encoding}");
-                Encoding.ParseEncoding(encodingStream);
+                var encodingStream = RequestCDN($"tpr/wow/data/{encoding.Substring(0,2)}/{encoding.Substring(2,2)}/{encoding}");
+                if (encodingStream == null)
+                {
+                    Log("Encoding stream is null", true);
+                    return string.Empty;
+                }
 
+                Encoding.ParseEncoding(encodingStream);
                 if (Encoding.EncodingDictionary.TryGetValue(rootContentHash.ToByteArray().ToMD5(), out var entry))
                     return entry.ToHexString().ToLower();
                 else
@@ -231,20 +238,70 @@ namespace BuildMonitor
         /// <returns></returns>
         static MemoryStream GetWebRequestStream(string url)
         {
-            var client = new HttpClient();
-            var response = client.GetByteArrayAsync(url).Result;
+            try
+            {
+                var client = new HttpClient();
+                var response = client.GetAsync(url).Result;
 
-            return new MemoryStream(response);
+                if (response.StatusCode == HttpStatusCode.OK || response.StatusCode == HttpStatusCode.Accepted)
+                    return new MemoryStream(response.Content.ReadAsByteArrayAsync().Result);
+                else
+                {
+                    Log($"Error code: {response.StatusCode}", true);
+                    return null;
+                }
+            }
+            catch (Exception ex)
+            {
+                Log(ex.ToString(), true);
+                return null;
+            }
+        }
+
+        /// <summary>
+        /// Request a file from the CDN.
+        /// </summary>
+        /// <param name="url"></param>
+        static MemoryStream RequestCDN(string url)
+        {
+            var client = new HttpClient();
+            try
+            {
+                foreach (var cdn in cdnUrls)
+                {
+                    var response = client.GetAsync($"{cdn}/{url}").Result;
+
+                    if (response.StatusCode == HttpStatusCode.OK || response.StatusCode == HttpStatusCode.Accepted)
+                        return new MemoryStream(response.Content.ReadAsByteArrayAsync().Result);
+                    else
+                    {
+                        Log($"{cdn}/{url} gave error code {response.StatusCode} ({(uint)response.StatusCode})", true);
+                        continue;
+                    }
+                }
+
+                Log("Both CDNs throw an error! Please check the CDN path! :smile:", true);
+                return null;
+            }
+            catch (Exception ex)
+            {
+                Log(ex.ToString(), true);
+                return null;
+            }
         }
 
         /// <summary>
         /// Log message to console and webhook
         /// </summary>
         /// <param name="message"></param>
-        public static void Log(string message)
+        public static void Log(string message, bool error = false)
         {
-            Console.WriteLine(message);
-            webhookClient.SendMessageAsync(message);
+            Console.WriteLine(message.Replace("`", ""));
+
+            if (error)
+                webhookClient.SendMessageAsync($"@MaxtorCoder#1056 : ```{message}```");
+            else
+                webhookClient.SendMessageAsync(message);
         }
     }
 
