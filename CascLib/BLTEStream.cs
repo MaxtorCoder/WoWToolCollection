@@ -10,6 +10,7 @@ namespace CASCLib
     public class BLTEDecoderException : Exception
     {
         public int ErrorCode { get; }
+        public string KeyName { get; }
 
         public BLTEDecoderException(int error, string message) : base(message)
         {
@@ -19,6 +20,9 @@ namespace CASCLib
         public BLTEDecoderException(int error, string fmt, params object[] args) : base(string.Format(fmt, args))
         {
             ErrorCode = error;
+
+            if (error == 3)
+                KeyName = args[0].ToString();
         }
     }
 

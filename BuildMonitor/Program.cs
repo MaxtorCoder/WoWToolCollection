@@ -34,10 +34,10 @@ namespace BuildMonitor
             // Delete all files on startup.
             foreach (var file in Directory.GetFiles("cache"))
                 File.Delete(file);
-            
+
             foreach (var product in products)
                 ParseVersions(product, GetWebRequestStream($"{tacturl}/{product}/versions"));
-            
+
             Log("Monitoring the patch servers...");
             while (isMonitoring)
             {
@@ -182,9 +182,9 @@ namespace BuildMonitor
 
             Log($"`{product}` got a new update!\n\n" +
                 $"```BuildId       : {buildId} -> {versions.BuildId}\n" +
-                $"CDNConfig     : {oldVersion.CDNConfig:6} -> {versions.CDNConfig:6}\n" +
-                $"BuildConfig   : {oldVersion.BuildConfig:6} -> {versions.BuildConfig:6}\n" +
-                $"ProductConfig : {oldVersion.ProductConfig:6} -> {versions.ProductConfig:6}```");
+                $"CDNConfig     : {oldVersion.CDNConfig.Substring(0, 6)} -> {versions.CDNConfig.Substring(0, 6)}\n" +
+                $"BuildConfig   : {oldVersion.BuildConfig.Substring(0, 6)} -> {versions.BuildConfig.Substring(0, 6)}\n" +
+                $"ProductConfig : {oldVersion.ProductConfig.Substring(0, 6)} -> {versions.ProductConfig.Substring(0, 6)}```");
 
             File.Delete($"cache/{product}_{oldVersion.BuildId}.versions");
             File.WriteAllBytes($"cache/{product}_{versions.BuildId}.versions", stream.ToArray());
@@ -193,17 +193,15 @@ namespace BuildMonitor
             if (product == "wowdev" || product == "wowv")
                 return;
 
-            Console.WriteLine($"Getting 'root' from '{versions.BuildConfig:6}'");
-            var oldRoot = BuildConfigToRoot(RequestCDN($"tpr/wow/config/{oldVersion.BuildConfig:2}/{oldVersion.BuildConfig.Substring(2, 2)}/{oldVersion.BuildConfig}"));
-            var newRoot = BuildConfigToRoot(RequestCDN($"tpr/wow/config/{versions.BuildConfig:2}/{versions.BuildConfig.Substring(2, 2)}/{versions.BuildConfig}"));
+            Console.WriteLine($"Getting 'root' from '{versions.BuildConfig}'");
+            var oldRoot = BuildConfigToRoot(RequestCDN($"tpr/wow/config/{oldVersion.BuildConfig.Substring(0, 2)}/{oldVersion.BuildConfig.Substring(2, 2)}/{oldVersion.BuildConfig}"));
+            var newRoot = BuildConfigToRoot(RequestCDN($"tpr/wow/config/{versions.BuildConfig.Substring(0, 2)}/{versions.BuildConfig.Substring(2, 2)}/{versions.BuildConfig}"));
 
             // Update the product with the new Build Id
             BranchVersions[product] = versions.BuildId;
 
-            var addedFiles = DiffRoot(oldRoot.Item1, newRoot.Item1);
-
-            var cascHandler = CASCHandler.OpenSpecificStorage("wow_beta", versions.BuildConfig, newRoot.Item2);
-            cascHandler.Root.SetFlags(LocaleFlags.All_WoW);
+            var addedFiles = DiffRoot(oldRoot.Item1, newRoot.Item1).ToList();
+            FilenameGuesser.ProcessFiles(addedFiles, (oldVersion.BuildConfig, versions.BuildConfig), (oldVersion.CDNConfig, versions.CDNConfig), webhookClient);
         }
 
         /// <summary>

@@ -301,6 +301,11 @@ namespace CASCLib
         public static CASCConfig LoadSpecificStorageConfig(string product, string buildconfig, string encoding)
         {
             var config = new CASCConfig { OnlineMode = true, Region = "us", Product = product };
+
+            using (var ribbit = new RibbitClient("us"))
+            using (var cdnsStream = ribbit.GetAsStream($"v1/products/{product}/cdns"))
+                config.CDNData = VerBarConfig.ReadVerBarConfig(cdnsStream);
+
             config.GameType = CASCGame.DetectGameByUid(product);
 
             using (var stream = CDNIndexHandler.OpenConfigFileDirect(config, encoding))

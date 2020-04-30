@@ -40,22 +40,18 @@ namespace FilenameGuesser
                 using (var reader = new BinaryReader(stream))
                 {
                     var chunkId = (Chunk)reader.ReadUInt32().FlipUInt();
-            
-                    reader.BaseStream.Position = 0;
-                    switch (chunkId)
+                    if (chunkId == Chunk.MD21)
                     {
-                        case Chunk.MD21:
-                            var m2Reader = new M2Reader(reader);
-                            var pathName = Names.GetPathFromName(m2Reader.GetName());
-            
-                            AddToListfile(fileDataId, $"{pathName}/{m2Reader.GetName()}.m2");
-            
-                            NameTextures(m2Reader);
-                            NameSkins(m2Reader);
-                            NameAnims(m2Reader);
-                            NameLodSkins(m2Reader);
-            
-                            break;
+                        reader.BaseStream.Position = 0;
+                        var m2Reader = new M2Reader(reader);
+                        var pathName = Names.GetPathFromName(m2Reader.GetName());
+
+                        AddToListfile(fileDataId, $"{pathName}/{m2Reader.GetName()}.m2");
+
+                        NameTextures(m2Reader);
+                        NameSkins(m2Reader);
+                        NameAnims(m2Reader);
+                        NameLodSkins(m2Reader);
                     }
 
                     // Close the streams.
