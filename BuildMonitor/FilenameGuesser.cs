@@ -27,7 +27,7 @@ namespace BuildMonitor
         /// <summary>
         /// Process the newly added files and automatically name them.
         /// </summary>
-        public static void ProcessFiles(List<RootEntry> entries, (string oldBuildConfig, string newBuildConfig) buildConfig, (string oldCdnConfig, string newCdnConfig) cdnconfig, DiscordWebhookClient webhook)
+        public static void ProcessFiles(string product, List<RootEntry> entries, (string oldBuildConfig, string newBuildConfig) buildConfig, (string oldCdnConfig, string newCdnConfig) cdnconfig, DiscordWebhookClient webhook)
         {
             if (webhook != null)
                 webhookClient = webhook;
@@ -37,12 +37,12 @@ namespace BuildMonitor
 
             // Load old casc
             Console.WriteLine("Loading old casc...");
-            var oldCascHandler = CASCHandler.OpenSpecificStorage("wow_beta", buildConfig.oldBuildConfig, cdnconfig.oldCdnConfig);
+            var oldCascHandler = CASCHandler.OpenSpecificStorage(product, buildConfig.oldBuildConfig, cdnconfig.oldCdnConfig);
             oldCascHandler.Root.SetFlags(LocaleFlags.All_WoW);
 
             // Load new casc
             Console.WriteLine("Loading new casc...");
-            var newCascHandler = CASCHandler.OpenSpecificStorage("wow_beta", buildConfig.newBuildConfig, cdnconfig.newCdnConfig);
+            var newCascHandler = CASCHandler.OpenSpecificStorage(product, buildConfig.newBuildConfig, cdnconfig.newCdnConfig);
             newCascHandler.Root.SetFlags(LocaleFlags.All_WoW);
 
             var stopWatch = new Stopwatch();

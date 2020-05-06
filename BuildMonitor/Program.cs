@@ -19,7 +19,7 @@ namespace BuildMonitor
         private static readonly bool isMonitoring = true;
 
         private static string[] cdnUrls = { "http://level3.blizzard.com", "http://us.cdn.blizzard.com", "http://blzddist1-a.akamaihd.net" };
-        private static string[] products = { "wow", "wowt", "wow_beta", "wowv", "wowdev", "wow_classic", "wow_classic_ptr", "wow_classic_beta" };
+        private static string[] products = { "wow", "wowt", "wow_beta", "wowv", "wowv2", "wowdev", "wow_classic", "wow_classic_ptr", "wow_classic_beta" };
         private static Dictionary<string, uint> BranchVersions = new Dictionary<string, uint>();
         private static Dictionary<uint, VersionsInfo> BranchVersionInfo = new Dictionary<uint, VersionsInfo>(); 
 
@@ -30,11 +30,7 @@ namespace BuildMonitor
                 throw new Exception("Webhook is null!");
 
             Directory.CreateDirectory("cache");
-
-            // Delete all files on startup.
-            foreach (var file in Directory.GetFiles("cache"))
-                File.Delete(file);
-
+            
             foreach (var product in products)
                 ParseVersions(product, GetWebRequestStream($"{tacturl}/{product}/versions"));
 
@@ -90,7 +86,12 @@ namespace BuildMonitor
                 try
                 {
                     if (BranchVersions[product] != versions.BuildId)
+                    {
                         HandleNewVersion(versions, product, stream);
+                        
+                        // Update the product with the new Build Id
+                        BranchVersions[product] = versions.BuildId;
+                    }
                 }
                 catch (Exception ex)
                 {
@@ -190,18 +191,15 @@ namespace BuildMonitor
             File.WriteAllBytes($"cache/{product}_{versions.BuildId}.versions", stream.ToArray());
 
             // Check if the products are not encrypted..
-            if (product == "wowdev" || product == "wowv")
+            if (product == "wowdev" || product == "wowv" || product == "wowv2")
                 return;
 
             Console.WriteLine($"Getting 'root' from '{versions.BuildConfig}'");
             var oldRoot = BuildConfigToRoot(RequestCDN($"tpr/wow/config/{oldVersion.BuildConfig.Substring(0, 2)}/{oldVersion.BuildConfig.Substring(2, 2)}/{oldVersion.BuildConfig}"));
             var newRoot = BuildConfigToRoot(RequestCDN($"tpr/wow/config/{versions.BuildConfig.Substring(0, 2)}/{versions.BuildConfig.Substring(2, 2)}/{versions.BuildConfig}"));
 
-            // Update the product with the new Build Id
-            BranchVersions[product] = versions.BuildId;
-
             var addedFiles = DiffRoot(oldRoot.Item1, newRoot.Item1).ToList();
-            FilenameGuesser.ProcessFiles(addedFiles, (oldVersion.BuildConfig, versions.BuildConfig), (oldVersion.CDNConfig, versions.CDNConfig), webhookClient);
+            FilenameGuesser.ProcessFiles(product, addedFiles, (oldVersion.BuildConfig, versions.BuildConfig), (oldVersion.CDNConfig, versions.CDNConfig), webhookClient);
         }
 
         /// <summary>
