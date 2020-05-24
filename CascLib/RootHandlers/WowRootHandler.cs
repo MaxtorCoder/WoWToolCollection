@@ -1,5 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Collections.Concurrent;
+using System.Threading.Tasks;
 using System.IO;
 using System.Linq;
 
@@ -98,21 +100,11 @@ namespace CASCLib
 
         public WowRootHandler(BinaryReader stream)
         {
-            int magic = stream.ReadInt32();
+            int numFilesRead = 0;
 
-            int numFilesTotal = 0, numFilesWithNameHash = 0, numFilesRead = 0;
-
-            const int TSFMMagic = 0x4D465354;
-
-            if (magic == TSFMMagic)
-            {
-                numFilesTotal = stream.ReadInt32();
-                numFilesWithNameHash = stream.ReadInt32();
-            }
-            else
-            {
-                stream.BaseStream.Position -= 4;
-            }
+            var magic = stream.ReadInt32();
+            var numFilesTotal        = stream.ReadInt32();
+            var numFilesWithNameHash = stream.ReadInt32();
 
             while (stream.BaseStream.Position < stream.BaseStream.Length)
             {
@@ -147,51 +139,28 @@ namespace CASCLib
 
                 ulong[] nameHashes = null;
 
-                if (magic == TSFMMagic)
-                {
-                    for (var i = 0; i < count; ++i)
-                        entries[i].MD5 = stream.Read<MD5Hash>();
+                for (var i = 0; i < count; ++i)
+                    entries[i].MD5 = stream.Read<MD5Hash>();
 
-                    if (numFilesRead > numFilesTotal - numFilesWithNameHash)
-                    {
-                        nameHashes = new ulong[count];
-
-                        for (var i = 0; i < count; ++i)
-                            nameHashes[i] = stream.ReadUInt64();
-                    }
-                }
-                else
+                if (numFilesRead > numFilesTotal - numFilesWithNameHash)
                 {
                     nameHashes = new ulong[count];
 
                     for (var i = 0; i < count; ++i)
-                    {
-                        entries[i].MD5 = stream.Read<MD5Hash>();
                         nameHashes[i] = stream.ReadUInt64();
-                    }
                 }
 
                 for (var i = 0; i < count; ++i)
                 {
-                    int fileDataId = filedataIds[i];
-
-                    //Console.WriteLine("filedataid {0}", fileDataId);
-
-                    ulong hash;
+                    var fileDataId = filedataIds[i];
+                    var hash = 0UL;
 
                     if (nameHashes == null)
-                    {
                         hash = FileDataHash.ComputeHash(fileDataId);
-                    }
                     else
-                    {
                         hash = nameHashes[i];
-                    }
 
                     RootData.Add(fileDataId, entries[i]);
-
-                    //Console.WriteLine("File: {0:X8} {1:X16} {2}", entries[i].FileDataId, hash, entries[i].MD5.ToHexString());
-
                     if (FileDataStore.TryGetValue(fileDataId, out ulong hash2))
                     {
                         if (hash2 != hash)
@@ -206,10 +175,10 @@ namespace CASCLib
                     if (nameHashes != null)
                     {
                         // generate our custom hash as well so we can still find file without calling GetHashByFileDataId in some weird cases
-                        ulong fileDataHash = FileDataHash.ComputeHash(fileDataId);
+                        var fileDataHash = FileDataHash.ComputeHash(fileDataId);
                         FileDataStoreReverse.Add(fileDataHash, fileDataId);
                     }
-                }
+                };
             }
         }
 

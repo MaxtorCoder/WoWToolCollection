@@ -31,8 +31,31 @@ namespace BuildMonitor
 
             Directory.CreateDirectory("cache");
             
-            foreach (var product in products)
-                ParseVersions(product, GetWebRequestStream($"{tacturl}/{product}/versions"));
+            foreach (var file in Directory.GetFiles("cache"))
+            {
+                foreach (var product in products)
+                {
+                    if (file.StartsWith(product))
+                    {
+                        var fileStream = File.Open(file, FileMode.Open);
+
+                        var memStream = new MemoryStream();
+                        fileStream.CopyToStream(memStream, fileStream.Length);
+
+                        ParseVersions(product, null);
+                    }
+                }
+            }
+
+            // BranchVersions.Add("wow_beta", 34392);
+            // BranchVersionInfo.Add(34392, new VersionsInfo
+            // {
+            //     CDNConfig = "64d477c7dc04cd964d44029f1a3c7f1b",
+            //     BuildConfig = "74062d970a6bc7581ab0fcddb90d00bd",
+            //     ProductConfig = "74062d970a6bc7581ab0fcddb90d00bd",
+            //     BuildId = 34392,
+            //     VersionsName = "9.0.1.34392",
+            // });
 
             Log("Monitoring the patch servers...");
             while (isMonitoring)
@@ -98,9 +121,6 @@ namespace BuildMonitor
                     Log(ex.ToString(), true);
                     return;
                 }
-
-                File.Delete($"cache/{product}_{versions.BuildId}.versions");
-                File.WriteAllBytes($"cache/{product}_{versions.BuildId}.versions", stream.ToArray());
             }
         }
 
@@ -199,7 +219,9 @@ namespace BuildMonitor
             var newRoot = BuildConfigToRoot(RequestCDN($"tpr/wow/config/{versions.BuildConfig.Substring(0, 2)}/{versions.BuildConfig.Substring(2, 2)}/{versions.BuildConfig}"));
 
             var addedFiles = DiffRoot(oldRoot.Item1, newRoot.Item1).ToList();
-            FilenameGuesser.ProcessFiles(product, addedFiles, (oldVersion.BuildConfig, versions.BuildConfig), (oldVersion.CDNConfig, versions.CDNConfig), webhookClient);
+
+            if (addedFiles.Count > 1)
+                FilenameGuesser.ProcessFiles(product, addedFiles, (oldVersion.BuildConfig, versions.BuildConfig), (oldVersion.CDNConfig, versions.CDNConfig), webhookClient);
         }
 
         /// <summary>

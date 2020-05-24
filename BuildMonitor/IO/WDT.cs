@@ -2,6 +2,7 @@
 using CASCLib;
 using System.Collections.Generic;
 using System.IO;
+using System;
 using static BuildMonitor.FilenameGuesser;
 
 namespace BuildMonitor.IO
@@ -20,8 +21,10 @@ namespace BuildMonitor.IO
             {
                 while (reader.BaseStream.Position < reader.BaseStream.Length)
                 {
-                    var chunkId = (Chunk)reader.ReadUInt32().FlipUInt();
+                    var chunkId = (Chunk)reader.ReadUInt32();
                     var chunkSize = reader.ReadUInt32();
+
+                    Console.WriteLine($"{chunkId} has been read!");
 
                     switch (chunkId)
                     {
@@ -42,7 +45,7 @@ namespace BuildMonitor.IO
                                     if (rootAdt == 0)
                                         continue;
 
-                                    MAIDs.Add($"{x}_{y}", new MAID
+                                    MAIDs.Add($"{y}_{x}", new MAID
                                     {
                                         RootADT = rootAdt,
                                         Obj0ADT = obj0Adt,
@@ -65,7 +68,7 @@ namespace BuildMonitor.IO
             }
         }
 
-        private void Skip(BinaryReader reader, uint size) => reader.BaseStream.Seek(size, SeekOrigin.Current);
+        private void Skip(BinaryReader reader, uint size) => reader.BaseStream.Position += size;
     }
 
     public struct MAID
