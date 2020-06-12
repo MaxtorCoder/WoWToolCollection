@@ -31,6 +31,7 @@ namespace CASCLib
         ptPT = 0x10000,
         enSG = 0x20000000, // custom
         plPL = 0x40000000, // custom
+        All_Classic_WoW = enUS | koKR | frFR | deDE | zhCN | esES | zhTW | enGB | esMX | ruRU | ptBR | ptPT,
         All_WoW = enUS | koKR | frFR | deDE | zhCN | esES | zhTW | enGB | esMX | ruRU | ptBR | itIT | ptPT
     }
 
@@ -47,8 +48,10 @@ namespace CASCLib
         F00000100 = 0x100, // apparently client doesn't load files with this flag
         F00000800 = 0x800, // only seen on UpdatePlugin files
         F00020000 = 0x20000, // new 9.0
+        F00040000 = 0x40000, // new 9.0
         F00080000 = 0x80000, // new 9.0
         F00100000 = 0x100000, // new 9.0
+        F00200000 = 0x200000, // new 9.0
         F00400000 = 0x400000, // new 9.0
         F02000000 = 0x2000000, // new 9.0
         Encrypted = 0x8000000, // encrypted may be?

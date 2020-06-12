@@ -31,42 +31,44 @@ namespace BuildMonitor
 
             Directory.CreateDirectory("cache");
             
-            foreach (var file in Directory.GetFiles("cache"))
+            //foreach (var file in Directory.GetFiles("cache"))
+            //{
+            //    foreach (var product in products)
+            //    {
+            //        if (file.StartsWith(product))
+            //        {
+            //            var fileStream = File.Open(file, FileMode.Open);
+
+            //            var memStream = new MemoryStream();
+            //            fileStream.CopyToStream(memStream, fileStream.Length);
+
+            //            ParseVersions(product, null);
+            //        }
+            //    }
+            //}
+
+            BranchVersions.Add("wow_beta", 34615);
+            BranchVersionInfo.Add(34615, new VersionsInfo
             {
-                foreach (var product in products)
-                {
-                    if (file.StartsWith(product))
-                    {
-                        var fileStream = File.Open(file, FileMode.Open);
-
-                        var memStream = new MemoryStream();
-                        fileStream.CopyToStream(memStream, fileStream.Length);
-
-                        ParseVersions(product, null);
-                    }
-                }
-            }
-
-            // BranchVersions.Add("wow_beta", 34392);
-            // BranchVersionInfo.Add(34392, new VersionsInfo
-            // {
-            //     CDNConfig = "64d477c7dc04cd964d44029f1a3c7f1b",
-            //     BuildConfig = "74062d970a6bc7581ab0fcddb90d00bd",
-            //     ProductConfig = "74062d970a6bc7581ab0fcddb90d00bd",
-            //     BuildId = 34392,
-            //     VersionsName = "9.0.1.34392",
-            // });
+                CDNConfig = "bd42528d330e052042a0e3d16cc33bd2",
+                BuildConfig = "4a8da195b8ca1375b61a87264b2e183a",
+                ProductConfig = "1e81a3f523b5883e47b3cb4cbd5dff53",
+                BuildId = 34615,
+                VersionsName = "9.0.1.34615",
+            });
 
             Log("Monitoring the patch servers...");
             while (isMonitoring)
             {
-                Thread.Sleep(60000);
+                Thread.Sleep(40000);
             
                 foreach (var product in products)
                 {
                     var stream = GetWebRequestStream($"{tacturl}/{product}/versions");
                     if (stream != null)
                         ParseVersions(product, stream);
+
+                    Thread.Sleep(100);
                 }
             }
         }
@@ -110,7 +112,8 @@ namespace BuildMonitor
                 {
                     if (BranchVersions[product] != versions.BuildId)
                     {
-                        HandleNewVersion(versions, product, stream);
+                        if (!product.Contains("wow_classic"))
+                            HandleNewVersion(versions, product, stream);
                         
                         // Update the product with the new Build Id
                         BranchVersions[product] = versions.BuildId;

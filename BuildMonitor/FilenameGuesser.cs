@@ -33,17 +33,15 @@ namespace BuildMonitor
                 webhookClient = webhook;
 
             // Read the original listfile first.
-            new Thread(ReadOriginalListfile).Start();
+            ReadOriginalListfile();
 
             // Load old casc
             Console.WriteLine("Loading old casc...");
             var oldCascHandler = CASCHandler.OpenSpecificStorage(product, buildConfig.oldBuildConfig, cdnconfig.oldCdnConfig);
-            oldCascHandler.Root.SetFlags(LocaleFlags.All_WoW);
 
             // Load new casc
             Console.WriteLine("Loading new casc...");
-            var newCascHandler = CASCHandler.OpenSpecificStorage(product, buildConfig.newBuildConfig, cdnconfig.newCdnConfig);
-            newCascHandler.Root.SetFlags(LocaleFlags.All_WoW);
+            var newCascHandler = CASCHandler.OpenOnlineStorage(product);
 
             var stopWatch = new Stopwatch();
             stopWatch.Start();
@@ -87,42 +85,45 @@ namespace BuildMonitor
             Console.WriteLine($"Finished processing {entries.Count} root entries in {stopWatch.Elapsed}\n");
 
             // Diff the 2 Map.db2 files.
-            Program.Log("Diffing Map.db2 for new map entries...");
-            var oldMapStorage = new DBReader(oldCascHandler.OpenFile(1349477)).GetRecords<Map>();
-            var newMapStorage = new DBReader(newCascHandler.OpenFile(1349477)).GetRecords<Map>();
-
-            if (oldMapStorage.Count < newMapStorage.Count)
+            if (product == "wow_beta")
             {
-                Parallel.ForEach(newMapStorage, entry =>
+                Program.Log("Diffing Map.db2 for new map entries...");
+                var oldMapStorage = new DBReader(oldCascHandler.OpenFile(1349477)).GetRecords<Map>();
+                var newMapStorage = new DBReader(newCascHandler.OpenFile(1349477)).GetRecords<Map>();
+
+                if (oldMapStorage.Count < newMapStorage.Count)
                 {
-                    if (!oldMapStorage.ContainsKey(entry.Key))
+                    Parallel.ForEach(newMapStorage, entry =>
                     {
-                        Console.WriteLine($"New map: {entry.Value.Directory} ({entry.Value.MapName}) with WDT {entry.Value.WdtFileDataId}");
-                        if (entry.Value.WdtFileDataId != 0 && !Listfile.ContainsKey(entry.Value.WdtFileDataId))
-                            Console.WriteLine($"{entry.Value.WdtFileDataId} does not exist in the listfile, yet.");
-
-                        if (entry.Value.WdtFileDataId != 0)
+                        if (!oldMapStorage.ContainsKey(entry.Key))
                         {
-                            Console.WriteLine($"{entry.Value.WdtFileDataId} exists in the current unknown file list.");
+                            Console.WriteLine($"New map: {entry.Value.Directory} ({entry.Value.MapName}) with WDT {entry.Value.WdtFileDataId}");
+                            if (entry.Value.WdtFileDataId != 0 && !Listfile.ContainsKey(entry.Value.WdtFileDataId))
+                                Console.WriteLine($"{entry.Value.WdtFileDataId} does not exist in the listfile, yet.");
 
-                            var wdt = new WDTReader();
-                            wdt.ReadWDT(newCascHandler, entry.Value.WdtFileDataId);
-
-                            AddToListfile(entry.Value.WdtFileDataId, $"world/maps/{entry.Value.Directory}/{entry.Value.Directory}.wdt");
-                            foreach (var maid in wdt.MAIDs)
+                            if (entry.Value.WdtFileDataId != 0)
                             {
-                                AddToListfile(maid.Value.RootADT,           $"world/maps/{entry.Value.Directory}/{entry.Value.Directory}_{maid.Key}.adt");
-                                AddToListfile(maid.Value.Obj0ADT,           $"world/maps/{entry.Value.Directory}/{entry.Value.Directory}_{maid.Key}_obj0.adt");
-                                AddToListfile(maid.Value.Obj1ADT,           $"world/maps/{entry.Value.Directory}/{entry.Value.Directory}_{maid.Key}_obj1.adt");
-                                AddToListfile(maid.Value.Tex0ADT,           $"world/maps/{entry.Value.Directory}/{entry.Value.Directory}_{maid.Key}_tex0.adt");
-                                AddToListfile(maid.Value.LodADT,            $"world/maps/{entry.Value.Directory}/{entry.Value.Directory}_{maid.Key}_lod.adt");
-                                AddToListfile(maid.Value.MapTexture,        $"world/maptextures/{entry.Value.Directory}/{entry.Value.Directory}_{maid.Key}.blp");
-                                AddToListfile(maid.Value.MapTextureN,       $"world/maptextures/{entry.Value.Directory}/{entry.Value.Directory}_{maid.Key}_n.blp");
-                                AddToListfile(maid.Value.MinimapTexture,    $"world/minimaps/{entry.Value.Directory}/{entry.Value.Directory}_{maid.Key}.blp");
+                                Console.WriteLine($"{entry.Value.WdtFileDataId} exists in the current unknown file list.");
+
+                                var wdt = new WDTReader();
+                                wdt.ReadWDT(newCascHandler, entry.Value.WdtFileDataId);
+
+                                AddToListfile(entry.Value.WdtFileDataId, $"world/maps/{entry.Value.Directory}/{entry.Value.Directory}.wdt");
+                                foreach (var maid in wdt.MAIDs)
+                                {
+                                    AddToListfile(maid.Value.RootADT,           $"world/maps/{entry.Value.Directory}/{entry.Value.Directory}_{maid.Key}.adt");
+                                    AddToListfile(maid.Value.Obj0ADT,           $"world/maps/{entry.Value.Directory}/{entry.Value.Directory}_{maid.Key}_obj0.adt");
+                                    AddToListfile(maid.Value.Obj1ADT,           $"world/maps/{entry.Value.Directory}/{entry.Value.Directory}_{maid.Key}_obj1.adt");
+                                    AddToListfile(maid.Value.Tex0ADT,           $"world/maps/{entry.Value.Directory}/{entry.Value.Directory}_{maid.Key}_tex0.adt");
+                                    AddToListfile(maid.Value.LodADT,            $"world/maps/{entry.Value.Directory}/{entry.Value.Directory}_{maid.Key}_lod.adt");
+                                    AddToListfile(maid.Value.MapTexture,        $"world/maptextures/{entry.Value.Directory}/{entry.Value.Directory}_{maid.Key}.blp");
+                                    AddToListfile(maid.Value.MapTextureN,       $"world/maptextures/{entry.Value.Directory}/{entry.Value.Directory}_{maid.Key}_n.blp");
+                                    AddToListfile(maid.Value.MinimapTexture,    $"world/minimaps/{entry.Value.Directory}/{entry.Value.Directory}_{maid.Key}.blp");
+                                }
                             }
                         }
-                    }
-                });
+                    });
+                }
             }
 
             // Generate the listfile now.
