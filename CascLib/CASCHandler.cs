@@ -107,10 +107,12 @@ namespace CASCLib
         public override Stream OpenFile(int fileDataId)
         {
             if (Root is WowRootHandler rh)
-                return OpenFile(rh.GetHashByFileDataId(fileDataId));
+                if (FileExists(fileDataId))
+                    return OpenFile(rh.GetHashByFileDataId(fileDataId));
 
             if (CASCConfig.ThrowOnFileNotFound)
-                throw new FileNotFoundException("FileData: " + fileDataId.ToString());
+                Console.WriteLine($"File '{fileDataId}' was not found!");
+
             return null;
         }
 
@@ -118,11 +120,15 @@ namespace CASCLib
 
         public override Stream OpenFile(ulong hash)
         {
+            if (hash == 0)
+                return null;
+
             if (GetEncodingEntry(hash, out EncodingEntry encInfo))
                 return OpenFile(encInfo.Key);
 
             if (CASCConfig.ThrowOnFileNotFound)
-                throw new FileNotFoundException(string.Format("{0:X16}", hash));
+                Console.WriteLine($"File '{hash:X16}' was not found!");
+
             return null;
         }
 

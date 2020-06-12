@@ -27,7 +27,7 @@ namespace BuildMonitor
         /// <summary>
         /// Process the newly added files and automatically name them.
         /// </summary>
-        public static void ProcessFiles(string product, List<RootEntry> entries, (string oldBuildConfig, string newBuildConfig) buildConfig, (string oldCdnConfig, string newCdnConfig) cdnconfig, DiscordWebhookClient webhook)
+        public static void ProcessFiles(string product, List<RootEntry> entries, string oldBuildConfig, string oldCdnConfig, DiscordWebhookClient webhook, uint buildId)
         {
             if (webhook != null)
                 webhookClient = webhook;
@@ -37,11 +37,13 @@ namespace BuildMonitor
 
             // Load old casc
             Console.WriteLine("Loading old casc...");
-            var oldCascHandler = CASCHandler.OpenSpecificStorage(product, buildConfig.oldBuildConfig, cdnconfig.oldCdnConfig);
+            var oldCascHandler = CASCHandler.OpenSpecificStorage(product, oldBuildConfig, oldCdnConfig);
+            oldCascHandler.Root.SetFlags(LocaleFlags.All_WoW, createTree: false);
 
             // Load new casc
             Console.WriteLine("Loading new casc...");
             var newCascHandler = CASCHandler.OpenOnlineStorage(product);
+            newCascHandler.Root.SetFlags(LocaleFlags.All_WoW, createTree: false);
 
             var stopWatch = new Stopwatch();
             stopWatch.Start();
@@ -97,14 +99,11 @@ namespace BuildMonitor
                     {
                         if (!oldMapStorage.ContainsKey(entry.Key))
                         {
-                            Console.WriteLine($"New map: {entry.Value.Directory} ({entry.Value.MapName}) with WDT {entry.Value.WdtFileDataId}");
                             if (entry.Value.WdtFileDataId != 0 && !Listfile.ContainsKey(entry.Value.WdtFileDataId))
                                 Console.WriteLine($"{entry.Value.WdtFileDataId} does not exist in the listfile, yet.");
 
                             if (entry.Value.WdtFileDataId != 0)
                             {
-                                Console.WriteLine($"{entry.Value.WdtFileDataId} exists in the current unknown file list.");
-
                                 var wdt = new WDTReader();
                                 wdt.ReadWDT(newCascHandler, entry.Value.WdtFileDataId);
 
@@ -127,7 +126,7 @@ namespace BuildMonitor
             }
 
             // Generate the listfile now.
-            GenerateListfile();
+            GenerateListfile(buildId);
         }
 
         /// <summary>
@@ -178,9 +177,9 @@ namespace BuildMonitor
         /// and send the file over the webhook so it can
         /// be submitted to Marlamin's website.
         /// </summary>
-        private static void GenerateListfile()
+        private static void GenerateListfile(uint buildId)
         {
-            using (var writer = new StreamWriter("listfile_exported.csv"))
+            using (var writer = new StreamWriter($"listfile_exported_{buildId}.csv"))
             {
                 var keys = AddedFileDataIds.Keys.ToList();
                 keys.Sort();
@@ -192,7 +191,7 @@ namespace BuildMonitor
             }
 
             // Send the file over the webhook
-            webhookClient.SendFileAsync("listfile_exported.csv", $"**{AddedFileDataIds.Count}** new listfile entries:");
+            webhookClient.SendFileAsync($"listfile_exported_{buildId}.csv", $"**{AddedFileDataIds.Count}** new listfile entries:");
         }
 
         public enum Chunk

@@ -174,13 +174,6 @@ namespace CASCLib
 
                     FileDataStore.Add(fileDataId, hash);
                     FileDataStoreReverse.Add(hash, fileDataId);
-
-                    if (nameHashes != null)
-                    {
-                        // generate our custom hash as well so we can still find file without calling GetHashByFileDataId in some weird cases
-                        var fileDataHash = FileDataHash.ComputeHash(fileDataId);
-                        FileDataStoreReverse.Add(fileDataHash, fileDataId);
-                    }
                 };
             }
         }

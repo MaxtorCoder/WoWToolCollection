@@ -31,43 +31,49 @@ namespace BuildMonitor
 
             Directory.CreateDirectory("cache");
             
-            //foreach (var file in Directory.GetFiles("cache"))
-            //{
-            //    foreach (var product in products)
-            //    {
-            //        if (file.StartsWith(product))
-            //        {
-            //            var fileStream = File.Open(file, FileMode.Open);
-
-            //            var memStream = new MemoryStream();
-            //            fileStream.CopyToStream(memStream, fileStream.Length);
-
-            //            ParseVersions(product, null);
-            //        }
-            //    }
-            //}
-
-            BranchVersions.Add("wow_beta", 34615);
-            BranchVersionInfo.Add(34615, new VersionsInfo
+            foreach (var file in Directory.GetFiles("cache"))
             {
-                CDNConfig = "bd42528d330e052042a0e3d16cc33bd2",
-                BuildConfig = "4a8da195b8ca1375b61a87264b2e183a",
-                ProductConfig = "1e81a3f523b5883e47b3cb4cbd5dff53",
-                BuildId = 34615,
-                VersionsName = "9.0.1.34615",
-            });
+                foreach (var product in products)
+                {
+                    if (file.StartsWith(product))
+                    {
+                        var fileStream = File.Open(file, FileMode.Open);
+
+                        var memStream = new MemoryStream();
+                        fileStream.CopyToStream(memStream, fileStream.Length);
+
+                        ParseVersions(product, null);
+                    }
+                }
+            }
+
+            #region Fail-Safe methods
+            // BranchVersions.Add("wow_beta", 34615);
+            // BranchVersionInfo.Add(34615, new VersionsInfo
+            // {
+            //     BuildConfig     = "4a8da195b8ca1375b61a87264b2e183a",
+            //     ProductConfig   = "1e81a3f523b5883e47b3cb4cbd5dff53",
+            //     CDNConfig       = "bd42528d330e052042a0e3d16cc33bd2",
+            //     BuildId         = 34615,
+            //     VersionsName    = "9.0.1.34615",
+            // });
+            // 
+            // var stream = GetWebRequestStream($"{tacturl}/wow_beta/versions");
+            // if (stream != null)
+            //     ParseVersions("wow_beta", stream);
+            #endregion
 
             Log("Monitoring the patch servers...");
             while (isMonitoring)
             {
-                Thread.Sleep(40000);
+                Thread.Sleep(60000);
             
                 foreach (var product in products)
                 {
                     var stream = GetWebRequestStream($"{tacturl}/{product}/versions");
                     if (stream != null)
                         ParseVersions(product, stream);
-
+            
                     Thread.Sleep(100);
                 }
             }
@@ -222,9 +228,8 @@ namespace BuildMonitor
             var newRoot = BuildConfigToRoot(RequestCDN($"tpr/wow/config/{versions.BuildConfig.Substring(0, 2)}/{versions.BuildConfig.Substring(2, 2)}/{versions.BuildConfig}"));
 
             var addedFiles = DiffRoot(oldRoot.Item1, newRoot.Item1).ToList();
-
             if (addedFiles.Count > 1)
-                FilenameGuesser.ProcessFiles(product, addedFiles, (oldVersion.BuildConfig, versions.BuildConfig), (oldVersion.CDNConfig, versions.CDNConfig), webhookClient);
+                FilenameGuesser.ProcessFiles(product, addedFiles, oldVersion.BuildConfig, oldVersion.CDNConfig, webhookClient, versions.BuildId);
         }
 
         /// <summary>

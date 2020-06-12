@@ -16,15 +16,16 @@ namespace BuildMonitor.IO
         /// </summary>
         public void ReadWDT(CASCHandler handler, uint wdtfiledataid)
         {
-            using (var stream = handler.OpenFile((int)wdtfiledataid))
+            var stream = handler.OpenFile((int)wdtfiledataid);
+            if (stream == null)
+                return;
+
             using (var reader = new BinaryReader(stream))
             {
                 while (reader.BaseStream.Position < reader.BaseStream.Length)
                 {
                     var chunkId = (Chunk)reader.ReadUInt32();
                     var chunkSize = reader.ReadUInt32();
-
-                    Console.WriteLine($"{chunkId} has been read!");
 
                     switch (chunkId)
                     {

@@ -32,11 +32,13 @@ namespace BuildMonitor.IO
         {
             var currentPos = 0L;
 
-            M2 = new M2();
-            M2.AnimationFileDataIds = new List<AFID>();
-            M2.TextureFileDataIds = new List<uint>();
-            M2.SkinFileDataIds = new List<uint>();
-            M2.LodSkinFileDataIds = new List<uint>();
+            M2 = new M2
+            {
+                AnimationFileDataIds    = new List<AFID>(),
+                TextureFileDataIds      = new List<uint>(),
+                SkinFileDataIds         = new List<uint>(),
+                LodSkinFileDataIds      = new List<uint>()
+            };
 
             while (currentPos < Reader.BaseStream.Length)
             {
