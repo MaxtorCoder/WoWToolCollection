@@ -1,9 +1,8 @@
-﻿using BuildMonitor.IO;
+﻿using BuildMonitor.IO.Format;
 using BuildMonitor.Model;
 using BuildMonitor.Util;
 using CASCLib;
 using DBFileReaderLib;
-using Discord.Webhook;
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
@@ -11,8 +10,6 @@ using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Net;
-using System.Threading;
-using System.Threading.Tasks;
 
 namespace BuildMonitor
 {
@@ -21,67 +18,47 @@ namespace BuildMonitor
         public static ConcurrentDictionary<uint, string> AddedFileDataIds = new ConcurrentDictionary<uint, string>();
         public static ConcurrentDictionary<uint, string> FDIDFilename = new ConcurrentDictionary<uint, string>();
 
-        private static Dictionary<uint, string> Listfile = new Dictionary<uint, string>();
-        private static DiscordWebhookClient webhookClient;
+        private static Dictionary<uint, string> listfile = new Dictionary<uint, string>();
 
         /// <summary>
         /// Process the newly added files and automatically name them.
         /// </summary>
-        public static void ProcessFiles(string product, List<RootEntry> entries, string oldBuildConfig, string oldCdnConfig, DiscordWebhookClient webhook, uint buildId)
+        public static void ProcessFiles(string product, List<RootEntry> entries, string buildConfig, string cdnConfig, uint buildId)
         {
-            if (webhook != null)
-                webhookClient = webhook;
-
             // Read the original listfile first.
             ReadOriginalListfile();
 
-            // Load old casc
-            Console.WriteLine("Loading old casc...");
-            var oldCascHandler = CASCHandler.OpenSpecificStorage(product, oldBuildConfig, oldCdnConfig);
-            oldCascHandler.Root.SetFlags(LocaleFlags.All_WoW, createTree: false);
-
-            // Load new casc
-            Console.WriteLine("Loading new casc...");
-            var newCascHandler = CASCHandler.OpenOnlineStorage(product);
-            newCascHandler.Root.SetFlags(LocaleFlags.All_WoW, createTree: false);
+            Console.WriteLine("Opening CASC Storage..");
+            CASC.OpenCasc(product, buildConfig, cdnConfig);
 
             var stopWatch = new Stopwatch();
             stopWatch.Start();
 
             Console.WriteLine($"Processing {entries.Count} root entries");
-            Parallel.ForEach(entries, entry =>
+            foreach (var entry in entries)
             {
-                if (newCascHandler.FileExists((int)entry.FileDataId))
+                using (var reader = CASC.OpenFile(entry.FileDataId))
                 {
-                    using (var stream = newCascHandler.OpenFile((int)entry.FileDataId))
+                    if (reader == null)
+                        return;
+
+                    var chunkId = (Chunk)reader.ReadUInt32().FlipUInt();
+                    if (chunkId == Chunk.MD21)
                     {
-                        if (stream == null)
-                            return;
+                        reader.BaseStream.Position = 0;
+                        var m2Reader = new M2Reader(reader);
+                        var pathName = Names.GetPathFromName(m2Reader.GetName());
 
-                        using (var reader = new BinaryReader(stream))
-                        {
-                            var chunkId = (Chunk)reader.ReadUInt32().FlipUInt();
-                            if (chunkId == Chunk.MD21)
-                            {
-                                reader.BaseStream.Position = 0;
-                                var m2Reader = new M2Reader(reader);
-                                var pathName = Names.GetPathFromName(m2Reader.GetName());
+                        AddToListfile(entry.FileDataId, $"{pathName}/{m2Reader.GetName()}.m2");
 
-                                AddToListfile(entry.FileDataId, $"{pathName}/{m2Reader.GetName()}.m2");
-
-                                // Name all the files.
-                                m2Reader.NameAllFiles();
-                            }
-
-                            // Close the streams to save memory.
-                            reader.Close();
-                            stream.Close();
-                        }
+                        // Name all the files.
+                        m2Reader.NameAllFiles();
                     }
+
+                    // Close the streams to save memory.
+                    reader.Close();
                 }
-                else
-                    Program.Log($"{entry.FileDataId} does not exist!!", true);
-            });
+            }
 
             stopWatch.Stop();
             Console.WriteLine($"Finished processing {entries.Count} root entries in {stopWatch.Elapsed}\n");
@@ -89,23 +66,21 @@ namespace BuildMonitor
             // Diff the 2 Map.db2 files.
             if (product == "wow_beta")
             {
-                Program.Log("Diffing Map.db2 for new map entries...");
-                var oldMapStorage = new DBReader(oldCascHandler.OpenFile(1349477)).GetRecords<Map>();
-                var newMapStorage = new DBReader(newCascHandler.OpenFile(1349477)).GetRecords<Map>();
+                var oldMapStorage = new DBReader(CASC.OldStorage.OpenFile(1349477)).GetRecords<Map>();
+                var newMapStorage = new DBReader(CASC.NewStorage.OpenFile(1349477)).GetRecords<Map>();
 
                 if (oldMapStorage.Count < newMapStorage.Count)
                 {
-                    Parallel.ForEach(newMapStorage, entry =>
+                    DiscordServer.Log("Diffing Map.db2 for new map entries...");
+
+                    foreach (var entry in newMapStorage)
                     {
                         if (!oldMapStorage.ContainsKey(entry.Key))
                         {
-                            if (entry.Value.WdtFileDataId != 0 && !Listfile.ContainsKey(entry.Value.WdtFileDataId))
-                                Console.WriteLine($"{entry.Value.WdtFileDataId} does not exist in the listfile, yet.");
-
                             if (entry.Value.WdtFileDataId != 0)
                             {
                                 var wdt = new WDTReader();
-                                wdt.ReadWDT(newCascHandler, entry.Value.WdtFileDataId);
+                                wdt.ReadWDT(CASC.NewStorage, entry.Value.WdtFileDataId);
 
                                 AddToListfile(entry.Value.WdtFileDataId, $"world/maps/{entry.Value.Directory}/{entry.Value.Directory}.wdt");
                                 foreach (var maid in wdt.MAIDs)
@@ -121,7 +96,7 @@ namespace BuildMonitor
                                 }
                             }
                         }
-                    });
+                    }
                 }
             }
 
@@ -149,8 +124,8 @@ namespace BuildMonitor
                         var line = reader.ReadLine();
                         var lineSplit = line.Split(';');
 
-                        if (!Listfile.ContainsKey(uint.Parse(lineSplit[0])))
-                            Listfile.Add(uint.Parse(lineSplit[0]), lineSplit[1]);
+                        if (!listfile.ContainsKey(uint.Parse(lineSplit[0])))
+                            listfile.Add(uint.Parse(lineSplit[0]), lineSplit[1]);
                     }
                 }
             }
@@ -163,7 +138,7 @@ namespace BuildMonitor
         /// <param name="filename"></param>
         public static void AddToListfile(uint fileDataId, string filename)
         {
-            if (Listfile.TryGetValue(fileDataId, out var listfileFile))
+            if (listfile.TryGetValue(fileDataId, out var listfileFile))
             {
                 if (listfileFile.Contains("unnamed"))
                     AddedFileDataIds.TryAdd(fileDataId, filename);
@@ -191,7 +166,7 @@ namespace BuildMonitor
             }
 
             // Send the file over the webhook
-            webhookClient.SendFileAsync($"listfile_exported_{buildId}.csv", $"**{AddedFileDataIds.Count}** new listfile entries:");
+            DiscordServer.Webhook.SendFileAsync($"listfile_exported_{buildId}.csv", $"**{AddedFileDataIds.Count}** new listfile entries:");
         }
 
         public enum Chunk

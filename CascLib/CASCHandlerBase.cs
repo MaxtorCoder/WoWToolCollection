@@ -49,8 +49,6 @@ namespace CASCLib
             }
             catch (BLTEDecoderException exc) when (exc.ErrorCode == 3)
             {
-                if (CASCConfig.ThrowOnMissingDecryptionKey)
-                    Console.WriteLine($"Missing TACTKey: {exc.KeyName}");
                 return null;
             }
             catch// (Exception exc) when (!(exc is BLTEDecoderException))

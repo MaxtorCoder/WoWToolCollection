@@ -7,7 +7,7 @@ using System.IO.Compression;
 using System.Linq;
 using System.Security.Cryptography;
 
-namespace BuildMonitor.IO
+namespace BuildMonitor.IO.CASC
 {
     public static class BLTE
     {

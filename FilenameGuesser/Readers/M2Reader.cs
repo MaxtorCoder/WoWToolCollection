@@ -1,97 +1,92 @@
-﻿using System.Collections.Generic;
+﻿using FilenameGuesser.Util;
+using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Text;
-using FilenameGuesser.Util;
 
 namespace FilenameGuesser.Readers
 {
     public class M2Reader
     {
-        private BinaryReader Reader;
         private M2 M2;
-
         private uint lodCount = 0;
         private uint skinCount = 0;
 
-        /// <summary>
-        /// Create a new instance of <see cref="M2Reader"/>
-        /// </summary>
-        /// <param name="reader"></param>
-        public M2Reader(BinaryReader reader)
+        public void Process(Stream stream)
         {
-            Reader = reader;
-            Process();
-        }
-
-        /// <summary>
-        /// Process the M2 Files
-        /// </summary>
-        private void Process()
-        {
-            var currentPos = 0L;
-
-            M2 = new M2();
-            M2.AnimationFileDataIds = new List<AFID>();
-            M2.TextureFileDataIds = new List<uint>();
-            M2.SkinFileDataIds = new List<uint>();
-            M2.LodSkinFileDataIds = new List<uint>();
-            
-            while (currentPos < Reader.BaseStream.Length)
+            M2 = new M2
             {
-                var chunkId     = (Chunk)Reader.ReadUInt32().FlipUInt();
-                var chunkSize   = Reader.ReadUInt32();
+                AnimationFileDataIds    = new List<AFID>(),
+                TextureFileDataIds      = new List<uint>(),
+                SkinFileDataIds         = new List<uint>(),
+                LodSkinFileDataIds      = new List<uint>()
+            };
 
-                currentPos = Reader.BaseStream.Position + chunkSize;
-                switch (chunkId)
+            var currentPos = 0L;
+            using (var reader = new BinaryReader(stream))
+            {
+                while (currentPos < reader.BaseStream.Length)
                 {
-                    case Chunk.MD21:
-                        skinCount = ReadMD21(Reader);
+                    var chunkId   = new string(reader.ReadChars(4));
+                    var chunkSize = reader.ReadUInt32();
 
-                        Reader.BaseStream.Position = 8;
-                        Skip(chunkSize);
-                        break;
-                    case Chunk.LDV1:
-                        Reader.BaseStream.Position += 2;
-                        lodCount = Reader.ReadUInt16() - 1u;
-                        Reader.BaseStream.Position -= 4;
-                        Skip(chunkSize);
+                    currentPos = reader.BaseStream.Position + chunkSize;
+                    switch (chunkId)
+                    {
+                        case "MD21":
+                            skinCount = ReadMD21(reader);
 
-                        break;
-                    case Chunk.TXID:
-                        var textureCount = chunkSize / 4;
-                        for (var i = 0; i < textureCount; ++i)
-                            M2.TextureFileDataIds.Add(Reader.ReadUInt32());
+                            reader.BaseStream.Position = 8;
+                            reader.Skip(chunkSize);
+                            break;
+                        case "LDV1":
+                            reader.BaseStream.Position += 2;
+                            lodCount = reader.ReadUInt16() - 1u;
+                            reader.BaseStream.Position -= 4;
+                            reader.Skip(chunkSize);
 
-                        break;
-                    case Chunk.SFID:
-                        for (var i = 0; i < skinCount; ++i)
-                            M2.SkinFileDataIds.Add(Reader.ReadUInt32());
+                            break;
+                        case "TXID":
+                            var textureCount = chunkSize / 4;
+                            for (var i = 0; i < textureCount; ++i)
+                                M2.TextureFileDataIds.Add(reader.ReadUInt32());
 
-                        for (var i = 0; i < lodCount; ++i)
-                            M2.LodSkinFileDataIds.Add(Reader.ReadUInt32());
+                            break;
+                        case "SFID":
+                            for (var i = 0; i < skinCount; ++i)
+                                M2.SkinFileDataIds.Add(reader.ReadUInt32());
 
-                        break;
-                    case Chunk.AFID:
-                        var animCount = chunkSize / 8;
-                        for (var i = 0; i < animCount; ++i)
-                        {
-                            var afid = new AFID
+                            for (var i = 0; i < lodCount; ++i)
+                                M2.LodSkinFileDataIds.Add(reader.ReadUInt32());
+
+                            break;
+                        case "AFID":
+                            var animCount = chunkSize / 8;
+                            for (var i = 0; i < animCount; ++i)
                             {
-                                AnimId = Reader.ReadUInt16(),
-                                SubAnimId = Reader.ReadUInt16(),
-                                AnimFileId = Reader.ReadUInt32()
-                            };
-                            M2.AnimationFileDataIds.Add(afid);
-                        }
+                                var afid = new AFID
+                                {
+                                    AnimId = reader.ReadUInt16(),
+                                    SubAnimId = reader.ReadUInt16(),
+                                    AnimFileId = reader.ReadUInt32()
+                                };
+                                M2.AnimationFileDataIds.Add(afid);
+                            }
 
-                        break;
-                    default:
-                        Skip(chunkSize);
-                        break;
+                            break;
+                        default:
+                            reader.Skip(chunkSize);
+                            break;
+                    }
                 }
             }
         }
 
+        /// <summary>
+        /// Read MD21 header.
+        /// </summary>
+        /// <param name="reader"></param>
+        /// <returns></returns>
         private uint ReadMD21(BinaryReader reader)
         {
             reader.ReadBytes(8);
@@ -111,7 +106,67 @@ namespace FilenameGuesser.Readers
             return skinCount;
         }
 
-        private void Skip(uint size) => Reader.BaseStream.Seek(size, SeekOrigin.Current);
+        #region Name Functions
+        /// <summary>
+        /// Name all files corresponding to this M2
+        /// </summary>
+        public void NameAllFiles()
+        {
+            NameTextures();
+            NameSkins();
+            NameLodSkins();
+            NameAnims();
+        }
+
+        private void NameTextures()
+        {
+            foreach (var texture in GetTextures())
+            {
+                if (texture == 0)
+                    continue;
+
+                var pathName = Names.GetPathFromName(GetName());
+                string m2Name = GetName();
+
+                Program.AddToListfile(texture, $"{pathName}/{m2Name}_{texture}.blp");
+            }
+        }
+
+        private void NameSkins()
+        {
+            var skinList = GetSkins();
+            foreach (var skin in skinList)
+            {
+                var skinCount = skinList.IndexOf(skin);
+                var pathName = Names.GetPathFromName(GetName());
+
+                Program.AddToListfile(skin, $"{pathName}/{GetName()}{skinCount:00}.skin");
+            }
+        }
+
+        private void NameLodSkins()
+        {
+            var lodSkinList = GetLodSkins();
+            foreach (var lodksin in lodSkinList)
+            {
+                var skinCount = lodSkinList.IndexOf(lodksin);
+                var pathName = Names.GetPathFromName(GetName());
+
+                Program.AddToListfile(lodksin, $"{pathName}/{GetName()}_lod{skinCount:00}.skin");
+            }
+        }
+
+        private void NameAnims()
+        {
+            var animList = GetAnims();
+            foreach (var anim in animList)
+            {
+                var pathName = Names.GetPathFromName(GetName());
+
+                Program.AddToListfile(anim.AnimFileId, $"{pathName}/{GetName()}{anim.AnimId:0000}_{anim.SubAnimId:00}.anim");
+            }
+        }
+        #endregion
 
         public string GetName() => M2.Name;
         public List<uint> GetTextures() => M2.TextureFileDataIds;

@@ -5,7 +5,7 @@ using System.IO;
 using System.Text;
 using static BuildMonitor.FilenameGuesser;
 
-namespace BuildMonitor.IO
+namespace BuildMonitor.IO.Format
 {
     public class M2Reader
     {

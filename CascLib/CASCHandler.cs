@@ -110,8 +110,8 @@ namespace CASCLib
                 if (FileExists(fileDataId))
                     return OpenFile(rh.GetHashByFileDataId(fileDataId));
 
-            if (CASCConfig.ThrowOnFileNotFound)
-                Console.WriteLine($"File '{fileDataId}' was not found!");
+            // if (CASCConfig.ThrowOnFileNotFound)
+            //     Console.WriteLine($"File '{fileDataId}' was not found!");
 
             return null;
         }

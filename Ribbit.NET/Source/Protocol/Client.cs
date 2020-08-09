@@ -7,16 +7,12 @@ using Ribbit.Constants;
 
 namespace Ribbit.Protocol
 {
-    public class Client
+    public class Client : IDisposable
     {
         private string host;
         private short port;
 
-
-        public Client(Region region) : this(region.GetHostname(), 1119) 
-        { 
-
-        }
+        public Client(Region region) : this(region.GetHostname(), 1119) { }
 
         public Client(string host, short port)
         {
@@ -26,7 +22,6 @@ namespace Ribbit.Protocol
 
         public Response Request(string endpoint)
         {
-
             var socket = new TcpClient(this.host, this.port);
             var stream = socket.GetStream();
 
@@ -54,5 +49,7 @@ namespace Ribbit.Protocol
 
             return new Response(dataStream);
         }
+
+        public void Dispose() { }
     }
 }

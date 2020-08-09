@@ -1,7 +1,7 @@
 ﻿using CASCLib;
 using System.Collections.Generic;
 
-namespace BuildMonitor.IO
+namespace BuildMonitor.IO.CASC
 {
     public struct EncodingFile
     {

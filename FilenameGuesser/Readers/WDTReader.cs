@@ -4,27 +4,19 @@ using System.IO;
 
 namespace FilenameGuesser.Readers
 {
-    public class WDTReader
+    public static class WDTReader
     {
-        public Dictionary<string, MAID> MAIDs = new Dictionary<string, MAID>();
-
-        private string path;
-
-        /// <summary>
-        /// Create a new instance of <see cref="WDTReader"/>
-        /// </summary>
-        /// <param name="path"></param>
-        public WDTReader(string path)
-        {
-            this.path = path;
-        }
+        public static Dictionary<string, MAID> MAIDs = new Dictionary<string, MAID>();
 
         /// <summary>
         /// Read the WDT file.
         /// </summary>
-        public void ReadWDT()
+        public static void ReadWDT(uint fileDataId)
         {
-            using (var stream = new MemoryStream(File.ReadAllBytes(path)))
+            var stream = CASC.OpenFile(fileDataId);
+            if (stream == null)
+                return;
+
             using (var reader = new BinaryReader(stream))
             {
                 while (reader.BaseStream.Position < reader.BaseStream.Length)
@@ -74,7 +66,7 @@ namespace FilenameGuesser.Readers
             }
         }
 
-        private void Skip(BinaryReader reader, uint size) => reader.BaseStream.Seek(size, SeekOrigin.Current);
+        private static void Skip(BinaryReader reader, uint size) => reader.BaseStream.Seek(size, SeekOrigin.Current);
     }
 
     public struct MAID

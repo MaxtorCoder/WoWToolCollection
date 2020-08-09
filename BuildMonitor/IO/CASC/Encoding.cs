@@ -4,7 +4,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 
-namespace BuildMonitor.IO
+namespace BuildMonitor.IO.CASC
 {
     // https://github.com/Marlamin/CASCToolHost/blob/master/CASCToolHost/CASC/NGDP.cs#L287
     public static class Encoding

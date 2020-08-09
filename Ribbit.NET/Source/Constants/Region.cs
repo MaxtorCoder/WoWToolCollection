@@ -30,7 +30,7 @@ namespace Ribbit.Constants
             if (region == Region.Custom)
                 hostname = region.GetName();
             else
-                hostname = region.GetName() + "version.battle.net";
+                hostname = region.GetName() + ".version.battle.net";
 
             return hostname;
         }

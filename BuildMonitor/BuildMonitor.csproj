@@ -24,6 +24,7 @@
   <ItemGroup>
     <ProjectReference Include="..\CascLib\CascLib.csproj" />
     <ProjectReference Include="..\DBFileReaderLib\DBFileReaderLib.csproj" />
+    <ProjectReference Include="..\Ribbit.NET\Ribbit.NET.csproj" />
   </ItemGroup>
 
 </Project>

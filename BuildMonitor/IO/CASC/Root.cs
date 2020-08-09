@@ -1,7 +1,10 @@
 ﻿using CASCLib;
+using System;
+using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 
-namespace BuildMonitor.IO
+namespace BuildMonitor.IO.CASC
 {
     // https://github.com/Marlamin/CASCToolHost/blob/master/CASCToolHost/CASC/NGDP.cs#L197
     public static class Root
@@ -96,6 +99,72 @@ namespace BuildMonitor.IO
             }
 
             return rootfile;
+        }
+
+        /// <summary>
+        /// Diff the 2 root files.
+        /// Completely taken from https://github.com/Marlamin/CASCToolHost/blob/master/CASCToolHost/Controllers/RootController.cs#L59
+        /// </summary>
+        /// <param name="oldRoot"></param>
+        /// <param name="newRoot"></param>
+        public static IEnumerable<RootEntry> DiffRoot(string oldRootHash, string newRootHash)
+        {
+            try
+            {
+                var oldRootStream = BuildMonitor.RequestCDN($"tpr/wow/data/{oldRootHash.Substring(0, 2)}/{oldRootHash.Substring(2, 2)}/{oldRootHash}");
+                var newRootStream = BuildMonitor.RequestCDN($"tpr/wow/data/{newRootHash.Substring(0, 2)}/{newRootHash.Substring(2, 2)}/{newRootHash}");
+
+                if (oldRootStream == null || newRootStream == null)
+                    return new List<RootEntry>();
+
+                var rootFromEntries = ParseRoot(oldRootStream).FileDataIds;
+                var rootToEntries   = ParseRoot(newRootStream).FileDataIds;
+
+                var fromEntries     = rootFromEntries.Keys.ToHashSet();
+                var toEntries       = rootToEntries.Keys.ToHashSet();
+
+                var commonEntries   = fromEntries.Intersect(toEntries);
+                var removedEntries  = fromEntries.Except(commonEntries);
+                var addedEntries    = toEntries.Except(commonEntries);
+
+                static RootEntry Prioritize(List<RootEntry> entries)
+                {
+                    var prioritized = entries.FirstOrDefault(subEntry =>
+                        subEntry.ContentFlags.HasFlag(ContentFlags.Alternate) == false &&
+                        (subEntry.LocaleFlags.HasFlag(LocaleFlags.All_WoW) || subEntry.LocaleFlags.HasFlag(LocaleFlags.enUS))
+                    );
+
+                    if (prioritized.FileDataId != 0)
+                        return prioritized;
+                    else
+                        return entries.First();
+                }
+
+                var addedFiles = addedEntries.Select(entry => rootToEntries[entry]).Select(Prioritize);
+                var removedFiles = removedEntries.Select(entry => rootFromEntries[entry]).Select(Prioritize);
+
+                var modifiedFiles = new List<RootEntry>();
+                foreach (var entry in commonEntries)
+                {
+                    var originalFile = Prioritize(rootFromEntries[entry]);
+                    var patchedFile = Prioritize(rootToEntries[entry]);
+
+                    if (originalFile.MD5.Equals(patchedFile.MD5))
+                        continue;
+
+                    modifiedFiles.Add(patchedFile);
+                }
+
+                DiscordServer.Log($"Added: **{addedFiles.Count()}**\nRemoved: **{removedFiles.Count()}**\nModified: **{modifiedFiles.Count()}**");
+
+                return addedFiles;
+            }
+            catch (Exception ex)
+            {
+                DiscordServer.Log(ex.ToString(), true);
+
+                return new List<RootEntry>();
+            }
         }
     }
 

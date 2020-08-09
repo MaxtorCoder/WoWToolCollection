@@ -6,6 +6,7 @@
     </PropertyGroup>
 
     <ItemGroup>
+      <ProjectReference Include="..\CascLib\CascLib.csproj" />
       <ProjectReference Include="..\DBFileReaderLib\DBFileReaderLib.csproj" />
     </ItemGroup>
 

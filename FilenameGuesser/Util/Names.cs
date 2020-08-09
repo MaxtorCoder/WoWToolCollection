@@ -39,6 +39,7 @@
                     return "world/expansion08/doodads/babylonzone";
                 case "mage":
                 case "cfx":
+                case "target":
                     return "spells";
                 case "polearm":
                 case "staff":
