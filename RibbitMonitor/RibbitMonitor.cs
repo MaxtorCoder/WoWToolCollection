@@ -14,11 +14,11 @@ namespace RibbitMonitor
 
         static void Main()
         {
-            var client = new Client(Region.Custom);
+            var client = new Client(Region.US);
             var request = client.Request("v1/summary");
 
             var summary = ParseSummary(request.ToString());
-            Console.WriteLine();
+            Console.WriteLine(request.ToString());
         }
 
         // static void Main()

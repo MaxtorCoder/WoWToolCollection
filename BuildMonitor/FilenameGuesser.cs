@@ -71,7 +71,7 @@ namespace BuildMonitor
 
                 if (oldMapStorage.Count < newMapStorage.Count)
                 {
-                    DiscordServer.Log("Diffing Map.db2 for new map entries...");
+                    // DiscordBot.Log("Diffing Map.db2 for new map entries...");
 
                     foreach (var entry in newMapStorage)
                     {
@@ -166,7 +166,7 @@ namespace BuildMonitor
             }
 
             // Send the file over the webhook
-            DiscordServer.Webhook.SendFileAsync($"listfile_exported_{buildId}.csv", $"**{AddedFileDataIds.Count}** new listfile entries:");
+            // DiscordBot.Webhook.SendFileAsync($"listfile_exported_{buildId}.csv", $"**{AddedFileDataIds.Count}** new listfile entries:");
         }
 
         public enum Chunk

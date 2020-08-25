@@ -18,13 +18,21 @@
   </ItemGroup>
 
   <ItemGroup>
+    <PackageReference Include="Discord.Net" Version="2.2.0" />
+    <PackageReference Include="Discord.Net.Core" Version="2.2.0" />
     <PackageReference Include="Discord.Net.Webhook" Version="2.2.0" />
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="3.1.7" />
+    <PackageReference Include="Newtonsoft.Json" Version="12.0.3" />
   </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\CascLib\CascLib.csproj" />
     <ProjectReference Include="..\DBFileReaderLib\DBFileReaderLib.csproj" />
     <ProjectReference Include="..\Ribbit.NET\Ribbit.NET.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Folder Include="Discord\Tasks\Modules\" />
   </ItemGroup>
 
 </Project>

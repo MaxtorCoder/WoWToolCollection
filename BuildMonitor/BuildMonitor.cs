@@ -1,15 +1,15 @@
-﻿using System;
+﻿using BuildMonitor.Discord;
+using BuildMonitor.IO.CASC;
+using CASCLib;
+using System.Net.Http;
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Net;
-using System.Net.Http;
-using System.Threading;
-using BuildMonitor.IO.CASC;
-using CASCLib;
-using Discord.Webhook;
 using Ribbit.Constants;
 using Ribbit.Protocol;
+using System.Threading;
 
 namespace BuildMonitor
 {
@@ -20,23 +20,18 @@ namespace BuildMonitor
         private static string[] cdnUrls      = { "http://level3.blizzard.com", "http://us.cdn.blizzard.com", "http://blzddist1-a.akamaihd.net" };
         private static List<string> products = new List<string>();
 
+        private static Dictionary<string, int> sequenceNumbers              = new Dictionary<string, int>();
         private static Dictionary<string, uint> versionsIds                 = new Dictionary<string, uint>();
-        private static Dictionary<uint, VersionsInfo> versionsInfo          = new Dictionary<uint, VersionsInfo>(); 
+        private static Dictionary<uint, VersionsInfo> versionInfo           = new Dictionary<uint, VersionsInfo>(); 
+        public static Dictionary<string, VersionsInfo> VersionsInfo         = new Dictionary<string, VersionsInfo>(); 
 
         static void Main(string[] args)
         {
             // Initialize Discord
-            DiscordServer.Initialize();
+            DiscordManager.Initialize();
 
-            // Getting all the files in "cache"
-            foreach (var file in Directory.GetFiles("cache/"))
-            {
-                var filenameSplit = file.Split("_").ToList();
-                filenameSplit.RemoveAt(filenameSplit.IndexOf(filenameSplit.Last()));
-
-                var product = string.Join('_', filenameSplit);
-                ParseVersions(Path.GetFileName(product), file);
-            }
+            if (!Directory.Exists("cache"))
+                Directory.CreateDirectory("cache");
 
             using (var client = new Client(Region.US))
             {
@@ -46,14 +41,15 @@ namespace BuildMonitor
                     if (entry.Key.Type == "cdn" || entry.Key.Type == "bgdl" || !entry.Key.Product.StartsWith("wow"))
                         continue;
 
-                    products.Add(entry.Key.Product);
+                    sequenceNumbers.Add(entry.Key.Product, entry.Value);
 
                     // Request the product versions file.
+                    // We request this at the start so we have old versions.
                     var request = client.Request($"v1/products/{entry.Key.Product}/versions").ToString();
 
                     // Parse the version file.
                     File.WriteAllText("cache/temp", request);
-                    ParseVersions(entry.Key.Product, "cache/temp");
+                    ParseVersions(entry.Key.Product, "cache/temp", false);
                     File.Delete("cache/temp");
 
                     // Cache the file
@@ -62,25 +58,31 @@ namespace BuildMonitor
                     Thread.Sleep(100);
                 }
 
-                if (isMonitoring)
-                    DiscordServer.Log("Monitoring the patch servers...");
-
                 while (isMonitoring)
                 {
-                    Thread.Sleep(60000);
+                    Thread.Sleep(50000);
 
-                    foreach (var product in products)
-                    {
-                        // Request the product versions file.
-                        var request = client.Request($"v1/products/{product}/versions").ToString();
+                     // Request the product versions file.
+                     summary = Ribbit.ParseSummary(client.Request("v1/summary").ToString());
+                     foreach (var entry in summary)
+                     {
+                         if (entry.Key.Type == "cdn" || entry.Key.Type == "bgdl" || !entry.Key.Product.StartsWith("wow"))
+                             continue;
 
-                        // Parse the version file.
-                        File.WriteAllText("cache/temp", request);
-                        ParseVersions(product, "cache/temp");
-                        File.Delete("cache/temp");
+                         // A new build happened
+                         if (sequenceNumbers[entry.Key.Product] != entry.Value)
+                         {
+                             // Request the product versions file.
+                             var request = client.Request($"v1/products/{entry.Key.Product}/versions").ToString();
 
-                        Thread.Sleep(100);
-                    }
+                             // Parse the version file.
+                             File.WriteAllText("cache/temp", request);
+                             ParseVersions(entry.Key.Product, "cache/temp");
+                             File.Delete("cache/temp");
+
+                             sequenceNumbers[entry.Key.Product] = entry.Value;
+                         }
+                     }
                 }
             }
         }
@@ -88,7 +90,7 @@ namespace BuildMonitor
         /// <summary>
         /// Parse the 'versions' file from the servers.
         /// </summary>
-        static void ParseVersions(string product, string file)
+        static void ParseVersions(string product, string file, bool newBuild = true)
         {
             using (var reader = new StreamReader(file))
             {
@@ -112,13 +114,18 @@ namespace BuildMonitor
                 versions.VersionsName   = lineSplit[5];
                 versions.ProductConfig  = lineSplit[6];
 
-                if (!versionsInfo.ContainsKey(versions.BuildId))
-                    versionsInfo.Add(versions.BuildId, versions);
+                if (!versionInfo.ContainsKey(versions.BuildId))
+                    versionInfo.Add(versions.BuildId, versions);
 
                 if (!versionsIds.ContainsKey(product))
                     versionsIds.Add(product, versions.BuildId);
 
-                if (versionsIds[product] != versions.BuildId)
+                if (!VersionsInfo.ContainsKey(product))
+                    VersionsInfo.Add(product, versions);
+                else
+                    VersionsInfo[product] = versions;
+
+                if (newBuild)
                 {
                     HandleNewVersion(versions, product, file);
 
@@ -131,16 +138,16 @@ namespace BuildMonitor
         /// <summary>
         /// Handle the new version for the product.
         /// </summary>
-        /// <param name="versions"></param>
-        /// <param name="product"></param>
-        /// <param name="stream"></param>
         static void HandleNewVersion(VersionsInfo versions, string product, string file)
         {
             var buildId = versionsIds[product];
-            var oldVersion = versionsInfo[buildId];
+            var oldVersion = versionInfo[buildId];
 
             // Send the embed.
-            DiscordServer.SendEmbed(product, oldVersion, versions);
+            DiscordManager.SendBuildMonitorMessage(product, oldVersion, versions);
+
+            File.Delete($"cache/{product}_{oldVersion.BuildId}");
+            File.WriteAllText($"cache/{product}_{versions.BuildId}", File.ReadAllText(file));
 
             // Check if the products are not encrypted..
             if (product == "wowdev" || product == "wowv" || product == "wowv2" || product == "wow_classic")
@@ -154,15 +161,13 @@ namespace BuildMonitor
             if (addedFiles.Count > 1)
                 FilenameGuesser.ProcessFiles(product, addedFiles, oldVersion.BuildConfig, oldVersion.CDNConfig, versions.BuildId);
 
-            File.Delete($"cache/{product}_{oldVersion.BuildId}");
-            File.WriteAllText($"cache/{product}_{versions.BuildId}", File.ReadAllText(file));
+            versionInfo.Remove(buildId);
+            versionInfo[versions.BuildId] = versions;
         }
 
         /// <summary>
         /// Parse the build config into the root hash
         /// </summary>
-        /// <param name="stream"></param>
-        /// <returns></returns>
         static (string, string) BuildConfigToRoot(MemoryStream stream)
         {          
             if (stream == null)
@@ -176,27 +181,27 @@ namespace BuildMonitor
                 var rootContentHash = reader.ReadLine().Split(" = ")[1];
 
                 // Skip to encoding.
-                for (var i = 0; i < 6; ++i)
-                    reader.ReadLine();
+                var line = string.Empty;
+                while ((line = reader.ReadLine()) == "encoding")
+                {
+                    var encoding        = line.Split(" = ", StringSplitOptions.RemoveEmptyEntries)[2];
+                    var encodingStream  = RequestCDN($"tpr/wow/data/{encoding.Substring(0, 2)}/{encoding.Substring(2, 2)}/{encoding}");
 
-                var encoding        = reader.ReadLine().Split(new char[] { ' ', '=' }, StringSplitOptions.RemoveEmptyEntries)[2];
-                var encodingStream  = RequestCDN($"tpr/wow/data/{encoding.Substring(0,2)}/{encoding.Substring(2,2)}/{encoding}");
+                    if (encodingStream == null)
+                        return (string.Empty, string.Empty);
 
-                if (encodingStream == null)
-                    return (string.Empty, string.Empty);
-
-                Encoding.ParseEncoding(encodingStream);
-                if (Encoding.EncodingDictionary.TryGetValue(rootContentHash.ToByteArray().ToMD5(), out var entry))
-                    return (entry.ToHexString().ToLower(), encoding.ToLower());
-                else
-                    return (string.Empty, string.Empty);
+                    Encoding.ParseEncoding(encodingStream);
+                    if (Encoding.EncodingDictionary.TryGetValue(rootContentHash.ToByteArray().ToMD5(), out var entry))
+                        return (entry.ToHexString().ToLower(), encoding.ToLower());
+                }
             }
+
+            return (string.Empty, string.Empty);
         }
 
         /// <summary>
         /// Request a file from the CDN.
         /// </summary>
-        /// <param name="url"></param>
         public static MemoryStream RequestCDN(string url)
         {
             var client = new HttpClient();
@@ -208,16 +213,12 @@ namespace BuildMonitor
 
                     if (response.StatusCode == HttpStatusCode.OK || response.StatusCode == HttpStatusCode.Accepted)
                         return new MemoryStream(response.Content.ReadAsByteArrayAsync().Result);
-                    else
-                        DiscordServer.Log($"{cdn}/{url} gave error code {response.StatusCode} ({(uint)response.StatusCode})", true);
                 }
 
                 return null;
             }
-            catch (Exception ex)
+            catch (Exception)
             {
-                DiscordServer.Log(ex.ToString(), true);
-
                 return null;
             }
         }

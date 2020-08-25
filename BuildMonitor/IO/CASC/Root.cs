@@ -155,13 +155,13 @@ namespace BuildMonitor.IO.CASC
                     modifiedFiles.Add(patchedFile);
                 }
 
-                DiscordServer.Log($"Added: **{addedFiles.Count()}**\nRemoved: **{removedFiles.Count()}**\nModified: **{modifiedFiles.Count()}**");
+                // DiscordBot.Log($"Added: **{addedFiles.Count()}**\nRemoved: **{removedFiles.Count()}**\nModified: **{modifiedFiles.Count()}**");
 
                 return addedFiles;
             }
             catch (Exception ex)
             {
-                DiscordServer.Log(ex.ToString(), true);
+                // DiscordBot.Log(ex.ToString(), true);
 
                 return new List<RootEntry>();
             }
