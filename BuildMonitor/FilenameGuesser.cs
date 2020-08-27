@@ -1,4 +1,5 @@
-﻿using BuildMonitor.IO.Format;
+﻿using BuildMonitor.Discord;
+using BuildMonitor.IO.Format;
 using BuildMonitor.Model;
 using BuildMonitor.Util;
 using CASCLib;
@@ -154,6 +155,9 @@ namespace BuildMonitor
         /// </summary>
         private static void GenerateListfile(uint buildId)
         {
+            if (AddedFileDataIds.Count == 0)
+                return;
+
             using (var writer = new StreamWriter($"listfile_exported_{buildId}.csv"))
             {
                 var keys = AddedFileDataIds.Keys.ToList();
@@ -166,7 +170,7 @@ namespace BuildMonitor
             }
 
             // Send the file over the webhook
-            // DiscordBot.Webhook.SendFileAsync($"listfile_exported_{buildId}.csv", $"**{AddedFileDataIds.Count}** new listfile entries:");
+            DiscordManager.SendFile($"listfile_exported_{buildId}.csv", $"**{AddedFileDataIds.Count}** new listfile entries:");
         }
 
         public enum Chunk

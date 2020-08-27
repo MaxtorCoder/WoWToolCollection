@@ -107,6 +107,31 @@ namespace BuildMonitor.Discord
             }
         }
 
+        /// <summary>
+        /// Send a <see cref="File"/> over the network.
+        /// </summary>
+        public static void SendFile(string filename, string message)
+        {
+            if (!File.Exists(filename))
+                return;
+
+            foreach (var guild in DiscordGuildSettings)
+            {
+                if (!guild.Value.IsDebugServer)
+                    continue;
+
+                var guildChannel = Bot.GetClient().GetGuild(guild.Key);
+                if (guildChannel == null)
+                    return;
+
+                var channel = guildChannel.GetChannel(guild.Value.BuildMonitorChannelId) as ISocketMessageChannel;
+                if (channel == null)
+                    continue;
+
+                channel.SendFileAsync(filename, message);
+            }
+        }
+
         private static void Save() =>
             File.WriteAllText("settings.json", JsonConvert.SerializeObject(DiscordGuildSettings, Formatting.Indented));
     }

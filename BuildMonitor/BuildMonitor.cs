@@ -143,6 +143,10 @@ namespace BuildMonitor
             var buildId = versionsIds[product];
             var oldVersion = versionInfo[buildId];
 
+            // Skip CDN only changes.
+            if (versions.BuildId == buildId)
+                return;
+
             // Send the embed.
             DiscordManager.SendBuildMonitorMessage(product, oldVersion, versions);
 
