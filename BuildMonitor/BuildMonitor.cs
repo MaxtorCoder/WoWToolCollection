@@ -42,6 +42,7 @@ namespace BuildMonitor
                         continue;
 
                     sequenceNumbers.Add(entry.Key.Product, entry.Value);
+                    products.Add(entry.Key.Product);
 
                     // Request the product versions file.
                     // We request this at the start so we have old versions.
@@ -62,27 +63,51 @@ namespace BuildMonitor
                 {
                     Thread.Sleep(50000);
 
-                     // Request the product versions file.
-                     summary = Ribbit.ParseSummary(client.Request("v1/summary").ToString());
-                     foreach (var entry in summary)
-                     {
-                         if (entry.Key.Type == "cdn" || entry.Key.Type == "bgdl" || !entry.Key.Product.StartsWith("wow"))
-                             continue;
+                    // Request the product versions file.
+                    summary = Ribbit.ParseSummary(client.Request("v1/summary").ToString());
 
-                         // A new build happened
-                         if (sequenceNumbers[entry.Key.Product] != entry.Value)
-                         {
-                             // Request the product versions file.
-                             var request = client.Request($"v1/products/{entry.Key.Product}/versions").ToString();
+                    var partialList = products;
+                    foreach (var entry in summary)
+                    {
+                        if (entry.Key.Type == "cdn" || entry.Key.Type == "bgdl" || !entry.Key.Product.StartsWith("wow"))
+                            continue;
 
-                             // Parse the version file.
-                             File.WriteAllText("cache/temp", request);
-                             ParseVersions(entry.Key.Product, "cache/temp");
-                             File.Delete("cache/temp");
+                        // New endpoint
+                        if (!products.Contains(entry.Key.Product))
+                        {
+                            // This makes the bot process the product.
+                            sequenceNumbers.Add(entry.Key.Product, 0);
 
-                             sequenceNumbers[entry.Key.Product] = entry.Value;
-                         }
-                     }
+                            products.Add(entry.Key.Product);
+
+                            DiscordManager.SendDebugMessage($"Found new endpoint: `{entry.Key.Product}`");
+                        }
+
+                        // A new build happened
+                        if (entry.Value > sequenceNumbers[entry.Key.Product])
+                        {
+                            // Request the product versions file.
+                            var request = client.Request($"v1/products/{entry.Key.Product}/versions").ToString();
+
+                            // Parse the version file.
+                            File.WriteAllText("cache/temp", request);
+                            ParseVersions(entry.Key.Product, "cache/temp");
+                            File.Delete("cache/temp");
+
+                            sequenceNumbers[entry.Key.Product] = entry.Value;
+                        }
+
+                        partialList.Remove(entry.Key.Product);
+                    }
+
+                    if (partialList.Count > 0)
+                    {
+                        foreach (var item in partialList)
+                        {
+                            Console.WriteLine($"Removed product: {item}");
+                            products.Remove(item);
+                        }
+                    }
                 }
             }
         }
@@ -102,6 +127,13 @@ namespace BuildMonitor
 
                 var line = reader.ReadLine();
                 var lineSplit = line.Split('|');
+                if (lineSplit.Length < 6)
+                {
+                    if (!versionsIds.ContainsKey(product))
+                        versionsIds.Add(product, 0);
+
+                    return;
+                }
 
                 versions.Region         = lineSplit[0];
                 versions.BuildConfig    = lineSplit[1];
@@ -154,19 +186,28 @@ namespace BuildMonitor
             File.WriteAllText($"cache/{product}_{versions.BuildId}", File.ReadAllText(file));
 
             // Check if the products are not encrypted..
-            if (product == "wowdev" || product == "wowv" || product == "wowv2" || product == "wow_classic")
+            if (product == "wowdev" || product == "wowv" || product == "wowv2" || 
+                product == "wow_classic" || product == "wow_classic_ptr")
                 return;
 
-            Console.WriteLine($"Getting 'root' from '{versions.BuildConfig}'");
-            var oldRoot = BuildConfigToRoot(RequestCDN($"tpr/wow/config/{oldVersion.BuildConfig.Substring(0, 2)}/{oldVersion.BuildConfig.Substring(2, 2)}/{oldVersion.BuildConfig}"));
-            var newRoot = BuildConfigToRoot(RequestCDN($"tpr/wow/config/{versions.BuildConfig.Substring(0, 2)}/{versions.BuildConfig.Substring(2, 2)}/{versions.BuildConfig}"));
+            Console.WriteLine($"Getting old BuildConfig from '{oldVersion.BuildConfig}'");
+            var oldRootStream = RequestCDN($"tpr/wow/config/{oldVersion.BuildConfig.Substring(0, 2)}/{oldVersion.BuildConfig.Substring(2, 2)}/{oldVersion.BuildConfig}");
+            if (oldRootStream == null)
+                return;
+
+            Console.WriteLine($"Getting new BuildConfig from '{versions.BuildConfig}'");
+            var newRootStream = RequestCDN($"tpr/wow/config/{versions.BuildConfig.Substring(0, 2)}/{versions.BuildConfig.Substring(2, 2)}/{versions.BuildConfig}");
+            if (newRootStream == null)
+                return;
+
+            var oldRoot = BuildConfigToRoot(oldRootStream);
+            var newRoot = BuildConfigToRoot(newRootStream);
 
             var addedFiles = Root.DiffRoot(oldRoot.Item1, newRoot.Item1).ToList();
             if (addedFiles.Count > 1)
                 FilenameGuesser.ProcessFiles(product, addedFiles, oldVersion.BuildConfig, oldVersion.CDNConfig, versions.BuildId);
 
             versionInfo.Remove(buildId);
-            versionInfo[versions.BuildId] = versions;
         }
 
         /// <summary>
@@ -185,10 +226,15 @@ namespace BuildMonitor
                 var rootContentHash = reader.ReadLine().Split(" = ")[1];
 
                 // Skip to encoding.
-                var line = string.Empty;
-                while ((line = reader.ReadLine()) == "encoding")
+                while (!reader.EndOfStream)
                 {
-                    var encoding        = line.Split(" = ", StringSplitOptions.RemoveEmptyEntries)[2];
+                    var line = reader.ReadLine();
+                    if (!line.StartsWith("encoding = "))
+                        continue;
+
+                    line = line.Replace("=", "");
+
+                    var encoding        = line.Split(" ", StringSplitOptions.RemoveEmptyEntries)[2];
                     var encodingStream  = RequestCDN($"tpr/wow/data/{encoding.Substring(0, 2)}/{encoding.Substring(2, 2)}/{encoding}");
 
                     if (encodingStream == null)
@@ -217,12 +263,15 @@ namespace BuildMonitor
 
                     if (response.StatusCode == HttpStatusCode.OK || response.StatusCode == HttpStatusCode.Accepted)
                         return new MemoryStream(response.Content.ReadAsByteArrayAsync().Result);
+                    else
+                        DiscordManager.SendDebugMessage($"Tried {cdn} for {url}");
                 }
 
                 return null;
             }
-            catch (Exception)
+            catch (Exception ex)
             {
+                DiscordManager.SendDebugMessage($"```{ex}```");
                 return null;
             }
         }

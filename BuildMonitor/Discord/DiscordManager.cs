@@ -1,4 +1,5 @@
-﻿using Discord;
+﻿using BuildMonitor.Util;
+using Discord;
 using Discord.Commands;
 using Discord.WebSocket;
 using Microsoft.Extensions.DependencyInjection;
@@ -81,17 +82,17 @@ namespace BuildMonitor.Discord
             {
                 var guildChannel = Bot.GetClient().GetGuild(guild.Key);
                 if (guildChannel == null)
-                    return;
+                    continue;
 
                 var channel = guildChannel.GetChannel(guild.Value.BuildMonitorChannelId) as ISocketMessageChannel;
                 if (channel == null)
                     continue;
 
-                var isEncrypted = (product == "wowdev" || product == "wowv" || product == "wowv2");
+                var isEncrypted = product.IsEncrypted();
                 var embed = new EmbedBuilder
                 {
-                    Title       = $"New Build for `{product}`",
-                    Description = $"⚠️ There is a new build for `{product}`! **{oldVersion.BuildId}** ▶️ **{newVersion.BuildId}**\n" +
+                    Title       = $"New Build for **{product.GetProduct()}** (`{product}`)",
+                    Description = $"⚠️ There is a new build for `{product}`! **{oldVersion.VersionsName}** ▶️ **{newVersion.VersionsName}**\n" +
                                   $"{(isEncrypted ? "\n⛔ This build is **NOT** datamineable\n" : "")}" +
                                   $"\n**Build Config**:\n" +
                                   $"`{oldVersion.BuildConfig.Substring(0, 6)}` ▶️ `{newVersion.BuildConfig.Substring(0, 6)}`" +
@@ -122,13 +123,35 @@ namespace BuildMonitor.Discord
 
                 var guildChannel = Bot.GetClient().GetGuild(guild.Key);
                 if (guildChannel == null)
-                    return;
+                    continue;
 
                 var channel = guildChannel.GetChannel(guild.Value.BuildMonitorChannelId) as ISocketMessageChannel;
                 if (channel == null)
                     continue;
 
                 channel.SendFileAsync(filename, message);
+            }
+        }
+
+        /// <summary>
+        /// Send a debug message to the Debug Server.
+        ///</summary>
+        public static void SendDebugMessage(string message)
+        {
+            foreach (var guild in DiscordGuildSettings)
+            {
+                if (!guild.Value.IsDebugServer)
+                    continue;
+
+                var guildChannel = Bot.GetClient().GetGuild(guild.Key);
+                if (guildChannel == null)
+                    continue;
+
+                var channel = guildChannel.GetChannel(guild.Value.BuildMonitorChannelId) as ISocketMessageChannel;
+                if (channel == null)
+                    continue;
+
+                channel.SendMessageAsync(message);
             }
         }
 

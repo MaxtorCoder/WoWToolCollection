@@ -41,7 +41,7 @@ namespace BuildMonitor
                 using (var reader = CASC.OpenFile(entry.FileDataId))
                 {
                     if (reader == null)
-                        return;
+                        continue;
 
                     var chunkId = (Chunk)reader.ReadUInt32().FlipUInt();
                     if (chunkId == Chunk.MD21)
