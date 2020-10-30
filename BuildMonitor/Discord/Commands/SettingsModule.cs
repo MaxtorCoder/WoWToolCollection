@@ -6,7 +6,8 @@ using System.Threading.Tasks;
 namespace BuildMonitor.Discord.Commands
 {
     [Group("settings")]
-    [RequireUserPermission(ChannelPermission.ManageChannels)]
+    [RequireUserPermission(GuildPermission.Administrator, Group = "Permission")]
+    [RequireOwner(Group = "Permission")]
     public class SettingsModule : ModuleBase<SocketCommandContext>
     {
         [Group("set")]

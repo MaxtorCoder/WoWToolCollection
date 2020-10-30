@@ -76,7 +76,7 @@ namespace BuildMonitor.Discord
         /// <summary>
         /// Send a message via <see cref="DiscordSocketClient"/> with the supplied channelId and message
         /// </summary>
-        public static void SendBuildMonitorMessage(string product, VersionsInfo oldVersion, VersionsInfo newVersion)
+        public static void SendBuildMonitorMessage(string product, Versions oldVersion, Versions newVersion)
         {
             foreach (var guild in DiscordGuildSettings)
             {

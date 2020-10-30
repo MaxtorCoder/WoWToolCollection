@@ -12,7 +12,7 @@ namespace BuildMonitor.Discord.Commands
         [Summary("Retrieves the version info with the given Branch Name")]
         public async Task GetVersionInfoAsync(string branchName)
         {
-            if (!BuildMonitor.VersionsInfo.TryGetValue(branchName, out var versionInfo))
+            if (!Ribbit.VersionsInfo.TryGetValue(branchName, out var versionInfo))
             {
                 await ReplyAsync($"`{branchName}` does not exist! Try again later!");
                 return;

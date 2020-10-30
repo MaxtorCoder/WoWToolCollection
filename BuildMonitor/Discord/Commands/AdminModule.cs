@@ -11,7 +11,7 @@ namespace BuildMonitor.Discord.Commands
     {
         [Command("maintenance")]
         [Summary("Broadcasts to other channels that there is maintenance")]
-        public async Task SetMaintenance(SocketGuildChannel channel)
+        public async Task SetMaintenance()
         {
             foreach (var guildSettings in DiscordManager.DiscordGuildSettings)
             {
@@ -33,12 +33,6 @@ namespace BuildMonitor.Discord.Commands
             }
 
             Environment.Exit(0);
-        }
-
-        [Command("test")]
-        public async Task Test(SocketGuildChannel channel)
-        {
-            DiscordManager.SendDebugMessage("Test");
         }
     }
 }

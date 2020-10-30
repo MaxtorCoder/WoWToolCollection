@@ -53,16 +53,14 @@ namespace BuildMonitor.Discord
             if (message.Author.Id == client.CurrentUser.Id)
                 return;
 
-            var channel = message.Channel as SocketGuildChannel;
-            if (channel == null)
+            if (!(message.Channel is SocketGuildChannel channel))
                 return;
 
             var guildSettings = DiscordManager.GetDiscordSettings(channel.Guild.Id);
             if (guildSettings == null)
                 return;
 
-            var userMessage = message as SocketUserMessage;
-            if (userMessage == null)
+            if (!(message is SocketUserMessage userMessage))
                 return;
 
             var argPos = 0;
@@ -71,7 +69,13 @@ namespace BuildMonitor.Discord
                 return;
 
             var context = new SocketCommandContext(client, userMessage);
-            await commands.ExecuteAsync(context, argPos, null);
+            var result = await commands.ExecuteAsync(context, argPos, null);
+            if (!result.IsSuccess)
+            {
+                await message.Channel.SendMessageAsync(result.ErrorReason);
+
+                Console.WriteLine($"{message.Author.Id} tried invoking command, error: {result.ErrorReason}");
+            }
         }
 
         /// <summary>

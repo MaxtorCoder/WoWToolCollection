@@ -3,6 +3,7 @@ using CASCLib;
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Threading.Tasks;
 
 namespace BuildMonitor.IO.CASC
 {
@@ -14,8 +15,6 @@ namespace BuildMonitor.IO.CASC
         /// <summary>
         /// Read the Encoding file and return a parsed <see cref="EncodingFile"/>
         /// </summary>
-        /// <param name="contentStream"></param>
-        /// <returns></returns>
         public static EncodingFile ParseEncoding(MemoryStream contentStream)
         {
             var encodingFile = new EncodingFile();
@@ -74,6 +73,51 @@ namespace BuildMonitor.IO.CASC
             }
 
             return encodingFile;
+        }
+
+        /// <summary>
+        /// Retrieve the root hash from the <see cref="EncodingFile"/>
+        /// </summary>
+        public static async Task<(MD5Hash Encoding, string Hash)> RetrieveRootHash(MemoryStream stream)
+        {
+            var (encoding, hash) = (new MD5Hash(), string.Empty);
+            using (var reader = new StreamReader(stream))
+            {
+                reader.ReadLine();
+                reader.ReadLine();
+
+                var rootContentHash = reader.ReadLine().Split(" = ")[1];
+
+                // Skip to encoding.
+                while (!reader.EndOfStream)
+                {
+                    var line = reader.ReadLine();
+                    if (!line.StartsWith("encoding = "))
+                        continue;
+
+                    line = line.Replace("=", "");
+
+                    var encodingHash = line.Split(" ", StringSplitOptions.RemoveEmptyEntries)[2];
+
+                    var encodingStream = await HTTP.RequestCDN($"tpr/wow/data/{encodingHash.Substring(0, 2)}/{encodingHash.Substring(2, 2)}/{encodingHash}");
+                    if (encodingStream != null)
+                    {
+                        // Parse the Encoding file to get hashes.
+                        ParseEncoding(encodingStream);
+
+                        // Retrieve the Root encoding
+                        if (EncodingDictionary.TryGetValue(rootContentHash.ToByteArray().ToMD5(), out var entry))
+                        {
+                            encoding = entry;
+                            hash = encodingHash.ToLower();
+
+                            break;
+                        }
+                    }
+                }
+            }
+
+            return (encoding, hash);
         }
     }
 }

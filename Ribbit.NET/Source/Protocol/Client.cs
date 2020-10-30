@@ -50,6 +50,24 @@ namespace Ribbit.Protocol
             return new Response(dataStream);
         }
 
+        public string RequestVersions(string product)
+        {
+            var request = Request($"v1/products/{product}/versions");
+            if (request == null)
+                return string.Empty;
+
+            return request.ToString();
+        }
+
+        public string RequestSummary()
+        {
+            var request = Request("v1/summary");
+            if (request == null)
+                return string.Empty;
+
+            return request.ToString();
+        }
+
         public void Dispose() { }
     }
 }
