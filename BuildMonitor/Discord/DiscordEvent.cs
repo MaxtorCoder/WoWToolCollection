@@ -22,7 +22,7 @@ namespace BuildMonitor.Discord
         /// <summary>
         /// <see cref="DiscordSocketClient.Ready"/> Event handler.
         /// </summary>
-        private async Task DiscordReady()
+        private Task DiscordReady()
         {
             Console.WriteLine($"[BOT]: {client.CurrentUser} connected to server");
 
@@ -43,6 +43,8 @@ namespace BuildMonitor.Discord
             // Get all Tasks and execute them.
             TaskManager.GetAllTasks();
             TaskManager.RunAllTasks();
+
+            return Task.CompletedTask;
         }
 
         /// <summary>
@@ -74,7 +76,7 @@ namespace BuildMonitor.Discord
             {
                 await message.Channel.SendMessageAsync(result.ErrorReason);
 
-                Console.WriteLine($"{message.Author.Id} tried invoking command, error: {result.ErrorReason}");
+                Console.WriteLine($"[BOT]: {message.Author.Id} tried invoking command, error: {result.ErrorReason}");
             }
         }
 

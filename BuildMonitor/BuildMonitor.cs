@@ -1,10 +1,8 @@
 ﻿using System.IO;
+using System.Threading;
 using Ribbit.Constants;
 using Ribbit.Protocol;
-using System.Threading;
 using BuildMonitor.Discord;
-using System.Threading.Tasks;
-using System;
 
 namespace BuildMonitor
 {
@@ -20,11 +18,15 @@ namespace BuildMonitor
             if (!Directory.Exists("cache"))
                 Directory.CreateDirectory("cache");
 
+            if (!Directory.Exists("listfiles"))
+                Directory.CreateDirectory("listfiles");
+
             using (var client = new Client(Region.US))
             {
                 Ribbit.InitRibbit(client);
+                DiscordManager.RibbitClient = client;
 
-                Task.Run(() =>
+                var monitorThread = new Thread(() => 
                 {
                     while (isMonitoring)
                     {
@@ -33,12 +35,13 @@ namespace BuildMonitor
                         Ribbit.CheckForVersions(client);
                     }
                 });
+                monitorThread.Start();
 
-                while (true)
-                {
-                    Console.Write("> ");
-                    var command = Console.ReadLine();
-                }
+                //while (true)
+                //{
+                //    Console.Write("> ");
+                //    var command = Console.ReadLine();
+                //}
             }
         }
     }

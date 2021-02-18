@@ -13,17 +13,15 @@ using System.Threading.Tasks;
 namespace BuildMonitor
 {
     using ProductStorage = Dictionary<string, uint>;
-    using VersionStorage = Dictionary<uint, Versions>;
+    using SequenceStorage = Dictionary<uint, uint>;
 
     public static class Ribbit
     {
         public static HashSet<string> RibbitProducts = new HashSet<string>();
-
-        public static ProductStorage SequenceStore = new ProductStorage();
-        public static VersionStorage VersionStore = new VersionStorage();
-        public static ProductStorage CurrentVersions = new ProductStorage();
         public static Dictionary<string, Versions> VersionsInfo = new Dictionary<string, Versions>();
+        public static ProductStorage SequenceStore = new ProductStorage();
 
+        private static SequenceStorage CurrentVersions = new SequenceStorage();
         private static List<string> removedProducts = new List<string>();
 
         /// <summary>
@@ -53,8 +51,12 @@ namespace BuildMonitor
             // Delete the temp file, useless on initialize
             File.Delete("cache\\temp");
 
-            foreach (var file in Directory.GetFiles("cache"))
+            var files = Directory.GetFiles("cache").OrderBy(x => x);
+            foreach (var file in files)
             {
+                if (Path.GetFileName(file) == "temp")
+                    continue;
+
                 var fileText = File.ReadAllText(file);
                 if (fileText == string.Empty)
                     continue;
@@ -64,7 +66,20 @@ namespace BuildMonitor
                 if (versionInfo == null)
                     continue;
 
-                SequenceStore.Add(product, versionInfo.SequenceNumber);
+                if (SequenceStore.ContainsKey(product))
+                {
+                    if (SequenceStore[product] < versionInfo.SequenceNumber)
+                    {
+                        // Console.WriteLine($"[DBG]: Replacing {product} with seq {SequenceStore[product]} -> {versionInfo.SequenceNumber}");
+                        SequenceStore[product] = versionInfo.SequenceNumber;
+                    }
+                    else
+                        Console.WriteLine($"[DBG]: {product} has lower seq_number {versionInfo.SequenceNumber} -> {SequenceStore[product]}");
+                }
+                else
+                    SequenceStore.Add(product, versionInfo.SequenceNumber);
+
+                // Console.WriteLine($"[DBG]: Product: {product} with {versionInfo.SequenceNumber}");
                 RibbitProducts.Add(product);
             }
 
@@ -96,21 +111,8 @@ namespace BuildMonitor
                 if (versionInfo == null)
                     continue;
 
-                if (!SequenceStore.ContainsKey(summaryEntry.Key.Product))
-                    SequenceStore.Add(summaryEntry.Key.Product, summaryEntry.Value);
-                else
-                {
-                    // There's a higher Sequence Number since shutdown.
-                    if (summaryEntry.Value > SequenceStore[summaryEntry.Key.Product])
-                    {
-                        SequenceStore[summaryEntry.Key.Product] = summaryEntry.Value;
-
-                        Task.Run(async () =>
-                        {
-                            await HandleNewBuild(versionInfo, "cache/temp");
-                        });
-                    }
-                }
+                if (!VersionsInfo.ContainsKey(versionInfo.Product))
+                    VersionsInfo.Add(versionInfo.Product, versionInfo);
 
                 if (!RibbitProducts.Contains(summaryEntry.Key.Product))
                 {
@@ -118,6 +120,15 @@ namespace BuildMonitor
                         DiscordManager.SendDebugMessage($"Found new endpoint: **{summaryEntry.Key.Product}**");
 
                     RibbitProducts.Add(summaryEntry.Key.Product);
+                }
+
+                if (!init && summaryEntry.Value > SequenceStore[summaryEntry.Key.Product])
+                {
+                    Console.WriteLine($"[RBT]: New version for {summaryEntry.Key.Product} {summaryEntry.Value} -> {SequenceStore[summaryEntry.Key.Product]}");
+
+                    HandleNewBuild(versionInfo, "cache/temp");
+
+                    SequenceStore[summaryEntry.Key.Product] = summaryEntry.Value;
                 }
 
                 // Remove the temp file and write to cache.
@@ -139,14 +150,15 @@ namespace BuildMonitor
             if (!versions.Parse("cache/temp"))
             {
                 removedProducts.Add(product);
-                Console.WriteLine($"Something went wrong while parsing {product}");
+                
+                Console.WriteLine($"[RBT]: Something went wrong while parsing {product}");
                 return null;
             }
 
             versions.Product = product;
 
-            if (!CurrentVersions.ContainsKey(product))
-                CurrentVersions.Add(product, versions.BuildId);
+            if (!CurrentVersions.ContainsKey(versions.SequenceNumber))
+                CurrentVersions.Add(versions.SequenceNumber, versions.BuildId);
 
             return versions;
         }
@@ -155,36 +167,44 @@ namespace BuildMonitor
         /// Handle the new <see cref="Versions"/>
         /// </summary>
         /// <param name="version"></param>
-        public static async Task HandleNewBuild(Versions version, string file)
+        public static async Task HandleNewBuild(Versions version, string file, string oldBuild = "")
         {
-            var oldBuildId = CurrentVersions[version.Product];
-            if (oldBuildId == version.BuildId)
-                return;
-
-            Versions oldVersion = null;
-            if (File.Exists($"{version.Product}_{oldBuildId}"))
+            if (!VersionsInfo.TryGetValue(version.Product, out var oldVersion))
             {
-                oldVersion = ParseVersions(File.ReadAllText($"{version.Product}_{oldBuildId}"), version.Product);
-                File.Delete($"{version.Product}_{oldBuildId}");
+                // This is impossible to hit.
+                Console.WriteLine($"[DBG]: {version.Product} does not have a versioninfo");
+                return;
             }
 
-            if (oldVersion == null)
+            VersionsInfo[version.Product] = version;
+
+            var oldBuildId = 0u;
+            if (oldBuild != "")
+                oldBuildId = uint.Parse(oldBuild);
+            else
+                oldBuildId = oldVersion.BuildId;
+
+            if (oldBuildId == version.BuildId)
+            {
+                Console.WriteLine($"[RBT]: {version.Product} has same BuildID, CDN change");
                 return;
+            }
 
-            File.WriteAllText($"{version.Product}_{version.BuildId}", File.ReadAllText(file));
-            DiscordManager.SendBuildMonitorMessage(version.Product, oldVersion, version);
-
-            CurrentVersions[version.Product] = version.BuildId;
+            Console.WriteLine($"[RBT]: Processing `{version.Product}`");
+            File.WriteAllText($"cache/{version.Product}-{version.BuildId}", File.ReadAllText(file));
 
             if (version.Product.IsEncrypted())
+            {
+                DiscordManager.SendBuildMonitorMessage(version.Product, oldVersion, version, oldBuild != "");
                 return;
+            }
 
-            Console.WriteLine($"Getting old BuildConfig '{oldVersion.BuildConfig}'");
+            Console.WriteLine($"[RBT]: Getting old BuildConfig '{oldVersion.BuildConfig}'");
             var oldRootStream = await HTTP.RequestCDN($"tpr/wow/config/{oldVersion.BuildConfig.Substring(0, 2)}/{oldVersion.BuildConfig.Substring(2, 2)}/{oldVersion.BuildConfig}");
             if (oldRootStream == null)
                 return;
 
-            Console.WriteLine($"Getting new BuildConfig '{version.BuildConfig}'");
+            Console.WriteLine($"[RBT]: Getting new BuildConfig '{version.BuildConfig}'");
             var newRootStream = await HTTP.RequestCDN($"tpr/wow/config/{version.BuildConfig.Substring(0, 2)}/{version.BuildConfig.Substring(2, 2)}/{version.BuildConfig}");
             if (newRootStream == null)
                 return;
@@ -192,9 +212,13 @@ namespace BuildMonitor
             var oldRoot = await Encoding.RetrieveRootHash(oldRootStream);
             var newRoot = await Encoding.RetrieveRootHash(newRootStream);
 
-            var addedFiles = await Root.DiffRoot(oldRoot.Encoding.ToHexString(), newRoot.Encoding.ToHexString());
-            if (addedFiles.Count > 1)
-                FilenameGuesser.ProcessFiles(version.Product, addedFiles, oldVersion.BuildConfig, oldVersion.CDNConfig, version.BuildId);
+            var fileInfo = await Root.DiffRoot(oldRoot.Encoding.ToHexString().ToLower(), newRoot.Encoding.ToHexString().ToLower());
+            version.FileInfo = fileInfo;
+
+            DiscordManager.SendBuildMonitorMessage(version.Product, oldVersion, version, oldBuild != "");
+
+            if (fileInfo.Added.Count > 1)
+                FilenameGuesser.ProcessFiles(version.Product, fileInfo.Added, oldVersion.BuildConfig, oldVersion.CDNConfig, version.BuildId);
         }
     }
 }

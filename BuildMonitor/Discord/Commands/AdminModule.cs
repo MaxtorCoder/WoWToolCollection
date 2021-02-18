@@ -35,4 +35,20 @@ namespace BuildMonitor.Discord.Commands
             Environment.Exit(0);
         }
     }
+
+    [Group("debug")]
+    [RequireOwner]
+    public class DebugModule : ModuleBase<SocketCommandContext>
+    {
+        [Group("set")]
+        public class DebugSetModule : ModuleBase<SocketCommandContext>
+        {
+            [Command("sequence")]
+            public async Task HandleSetSequenceNumber(string product, uint seqNumber)
+            {
+                Ribbit.SequenceStore[product] = seqNumber;
+                await ReplyAsync($"Set `{product}` to Sequence: {seqNumber}");
+            }
+        }
+    }
 }

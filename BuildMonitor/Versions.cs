@@ -1,4 +1,5 @@
-﻿using System.IO;
+﻿using BuildMonitor.IO.CASC;
+using System.IO;
 
 namespace BuildMonitor
 {
@@ -13,6 +14,7 @@ namespace BuildMonitor
         public uint BuildId { get; set; }
         public string VersionsName { get; set; }
         public string ProductConfig { get; set; }
+        public FilesInfo FileInfo { get; set; }
 
         /// <summary>
         /// Parse the <see cref="Versions"/> file and fill the structure.

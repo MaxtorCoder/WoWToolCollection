@@ -29,13 +29,13 @@ namespace BuildMonitor
             // Read the original listfile first.
             ReadOriginalListfile();
 
-            Console.WriteLine("Opening CASC Storage..");
+            Console.WriteLine("[RBT]: Opening CASC Storage..");
             CASC.OpenCasc(product, buildConfig, cdnConfig);
 
             var stopWatch = new Stopwatch();
             stopWatch.Start();
 
-            Console.WriteLine($"Processing {entries.Count} root entries");
+            Console.WriteLine($"[RBT]: Processing {entries.Count} root entries");
             foreach (var entry in entries)
             {
                 using (var reader = CASC.OpenFile(entry.FileDataId))
@@ -62,10 +62,10 @@ namespace BuildMonitor
             }
 
             stopWatch.Stop();
-            Console.WriteLine($"Finished processing {entries.Count} root entries in {stopWatch.Elapsed}\n");
+            Console.WriteLine($"[RBT]: Finished processing {entries.Count} root entries in {stopWatch.Elapsed}\n");
 
             // Diff the 2 Map.db2 files.
-            if (product == "wow_beta")
+            if (product == "wow_beta" || product == "wowt")
             {
                 var oldMapStorage = new DBReader(CASC.OldStorage.OpenFile(1349477)).GetRecords<Map>();
                 var newMapStorage = new DBReader(CASC.NewStorage.OpenFile(1349477)).GetRecords<Map>();
@@ -111,14 +111,14 @@ namespace BuildMonitor
         /// </summary>
         private static void ReadOriginalListfile()
         {
-            if (File.Exists("listfile.csv"))
-                File.Delete("listfile.csv");
+            if (File.Exists("listfiles/listfile.csv"))
+                File.Delete("listfiles/listfile.csv");
 
             using (var client = new WebClient())
             {
-                client.DownloadFile("https://wow.tools/casc/listfile/download/csv/unverified", "listfile.csv");
+                client.DownloadFile("https://wow.tools/casc/listfile/download/csv/unverified", "listfiles/listfile.csv");
 
-                using (var reader = new StreamReader("listfile.csv"))
+                using (var reader = new StreamReader("listfiles/listfile.csv"))
                 {
                     while (!reader.EndOfStream)
                     {
@@ -158,7 +158,7 @@ namespace BuildMonitor
             if (AddedFileDataIds.Count == 0)
                 return;
 
-            using (var writer = new StreamWriter($"listfile_exported_{buildId}.csv"))
+            using (var writer = new StreamWriter($"listfiles/listfile_exported_{buildId}.csv"))
             {
                 var keys = AddedFileDataIds.Keys.ToList();
                 keys.Sort();
@@ -170,7 +170,7 @@ namespace BuildMonitor
             }
 
             // Send the file over the webhook
-            DiscordManager.SendFile($"listfile_exported_{buildId}.csv", $"**{AddedFileDataIds.Count}** new listfile entries:");
+            DiscordManager.SendFile($"listfiles/listfile_exported_{buildId}.csv", $"**{AddedFileDataIds.Count}** new listfile entries:");
         }
 
         public enum Chunk

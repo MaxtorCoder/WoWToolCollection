@@ -15,8 +15,6 @@ namespace BuildMonitor.IO.CASC
         /// <summary>
         /// Parse the root file into <see cref="RootFile"/>
         /// </summary>
-        /// <param name="content"></param>
-        /// <returns></returns>
         public static RootFile ParseRoot(MemoryStream contentStream)
         {
             var rootfile = new RootFile
@@ -106,15 +104,13 @@ namespace BuildMonitor.IO.CASC
         /// Diff the 2 root files.
         /// Completely taken from https://github.com/Marlamin/CASCToolHost/blob/master/CASCToolHost/Controllers/RootController.cs#L59
         /// </summary>
-        /// <param name="oldRoot"></param>
-        /// <param name="newRoot"></param>
-        public static async Task<List<RootEntry>> DiffRoot(string oldRootHash, string newRootHash)
+        public static async Task<FilesInfo> DiffRoot(string oldRootHash, string newRootHash)
         {
             var oldRootStream = await HTTP.RequestCDN($"tpr/wow/data/{oldRootHash.Substring(0, 2)}/{oldRootHash.Substring(2, 2)}/{oldRootHash}");
             var newRootStream = await HTTP.RequestCDN($"tpr/wow/data/{newRootHash.Substring(0, 2)}/{newRootHash.Substring(2, 2)}/{newRootHash}");
 
             if (oldRootStream == null || newRootStream == null)
-                return new List<RootEntry>();
+                return new FilesInfo();
             
             var rootFromEntries = ParseRoot(oldRootStream).FileDataIds;
             var rootToEntries   = ParseRoot(newRootStream).FileDataIds;
@@ -154,7 +150,12 @@ namespace BuildMonitor.IO.CASC
                 modifiedFiles.Add(patchedFile);
             }
             
-            return addedFiles.ToList();
+            return new FilesInfo
+            {
+                Added = addedFiles.ToList(),
+                Removed = removedFiles.ToList(),
+                Modified = modifiedFiles.ToList(),
+            };
         }
     }
 
@@ -162,5 +163,12 @@ namespace BuildMonitor.IO.CASC
     {
         public MultiDictionary<ulong, RootEntry> Lookup;
         public MultiDictionary<uint, RootEntry> FileDataIds;
+    }
+
+    public class FilesInfo
+    {
+        public List<RootEntry> Added { get; set; }
+        public List<RootEntry> Removed { get; set; }
+        public List<RootEntry> Modified { get; set; }
     }
 }

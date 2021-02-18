@@ -2,7 +2,7 @@
 using Discord;
 using Discord.Commands;
 using Discord.WebSocket;
-using Microsoft.Extensions.DependencyInjection;
+using Ribbit.Protocol;
 using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
@@ -15,6 +15,7 @@ namespace BuildMonitor.Discord
 
     public static class DiscordManager
     {
+        public static Client RibbitClient;
         public static DiscordBot Bot;
         public static SettingsDictionary DiscordGuildSettings = new SettingsDictionary();
 
@@ -76,7 +77,7 @@ namespace BuildMonitor.Discord
         /// <summary>
         /// Send a message via <see cref="DiscordSocketClient"/> with the supplied channelId and message
         /// </summary>
-        public static void SendBuildMonitorMessage(string product, Versions oldVersion, Versions newVersion)
+        public static void SendBuildMonitorMessage(string product, Versions oldVersion, Versions newVersion, bool debug = false)
         {
             foreach (var guild in DiscordGuildSettings)
             {
@@ -99,12 +100,25 @@ namespace BuildMonitor.Discord
                                   $"\n**CDN Config**:\n" +
                                   $"`{oldVersion.CDNConfig.Substring(0, 6)}` ▶️ `{newVersion.CDNConfig.Substring(0, 6)}`" +
                                   $"\n**Product Config**:\n" +
-                                  $"`{oldVersion.ProductConfig.Substring(0, 6)}` ▶️ `{newVersion.ProductConfig.Substring(0, 6)}`",
+                                  $"`{oldVersion.ProductConfig.Substring(0, 6)}` ▶️ `{newVersion.ProductConfig.Substring(0, 6)}`\n\n",
                     Timestamp   = DateTime.Now,
                     // ThumbnailUrl    = "https://www.clipartmax.com/png/middle/307-3072138_world-of-warcraft-2-discord-emoji-world-of-warcraft-w.png"
                 };
 
-                channel.SendMessageAsync(embed: embed.Build());
+                if (!isEncrypted)
+                {
+                    embed.Description += $"**Removed Files**:  {newVersion.FileInfo.Removed.Count}\n" + 
+                                         $"**Modified Files**: {newVersion.FileInfo.Modified.Count}\n" +
+                                         $"**Added Files**:    {newVersion.FileInfo.Added.Count}";
+                }
+
+                if (!debug)
+                    channel.SendMessageAsync(embed: embed.Build());
+                else
+                {
+                    SendDebugMessage("", embed.Build());
+                    return;
+                }
             }
         }
 
@@ -136,7 +150,7 @@ namespace BuildMonitor.Discord
         /// <summary>
         /// Send a debug message to the Debug Server.
         ///</summary>
-        public static void SendDebugMessage(string message)
+        public static void SendDebugMessage(string message, Embed embed = null)
         {
             foreach (var guild in DiscordGuildSettings)
             {
@@ -151,7 +165,7 @@ namespace BuildMonitor.Discord
                 if (channel == null)
                     continue;
 
-                channel.SendMessageAsync(message);
+                channel.SendMessageAsync(message, embed: embed);
             }
         }
 
