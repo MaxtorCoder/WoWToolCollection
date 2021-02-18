@@ -3,17 +3,11 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 16
 VisualStudioVersion = 16.0.28729.10
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "RibbitMonitor", "RibbitMonitor\RibbitMonitor.csproj", "{4D29280B-5FB5-4FB2-BEB7-F73C60E2D466}"
-EndProject
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Ribbit.NET", "Ribbit.NET\Ribbit.NET.csproj", "{3CBED528-129B-4B71-B545-E2381E243871}"
-EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "DB2Dumper", "DB2Dumper\DB2Dumper.csproj", "{127840EB-20D4-47C5-AC65-3485C84AC12F}"
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "FilenameGuesser", "FilenameGuesser\FilenameGuesser.csproj", "{7B2B751D-ED26-4C72-94E2-C03F2F628CBA}"
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "DBFileReaderLib", "DBFileReaderLib\DBFileReaderLib.csproj", "{8C27C834-46D7-4EC8-BF23-1ACD96FC81D4}"
-EndProject
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "BuildMonitor", "BuildMonitor\BuildMonitor.csproj", "{37BF0AEA-16EA-443C-88AE-8B1882FF6C6C}"
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "CascLib", "CascLib\CascLib.csproj", "{0351AF2B-21F6-430B-85DA-1FF054F0F0AB}"
 EndProject
@@ -25,14 +19,6 @@ Global
 		Release|Any CPU = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(ProjectConfigurationPlatforms) = postSolution
-		{4D29280B-5FB5-4FB2-BEB7-F73C60E2D466}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{4D29280B-5FB5-4FB2-BEB7-F73C60E2D466}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{4D29280B-5FB5-4FB2-BEB7-F73C60E2D466}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{4D29280B-5FB5-4FB2-BEB7-F73C60E2D466}.Release|Any CPU.Build.0 = Release|Any CPU
-		{3CBED528-129B-4B71-B545-E2381E243871}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{3CBED528-129B-4B71-B545-E2381E243871}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{3CBED528-129B-4B71-B545-E2381E243871}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{3CBED528-129B-4B71-B545-E2381E243871}.Release|Any CPU.Build.0 = Release|Any CPU
 		{127840EB-20D4-47C5-AC65-3485C84AC12F}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{127840EB-20D4-47C5-AC65-3485C84AC12F}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{127840EB-20D4-47C5-AC65-3485C84AC12F}.Release|Any CPU.ActiveCfg = Release|Any CPU
@@ -45,10 +31,6 @@ Global
 		{8C27C834-46D7-4EC8-BF23-1ACD96FC81D4}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{8C27C834-46D7-4EC8-BF23-1ACD96FC81D4}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{8C27C834-46D7-4EC8-BF23-1ACD96FC81D4}.Release|Any CPU.Build.0 = Release|Any CPU
-		{37BF0AEA-16EA-443C-88AE-8B1882FF6C6C}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{37BF0AEA-16EA-443C-88AE-8B1882FF6C6C}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{37BF0AEA-16EA-443C-88AE-8B1882FF6C6C}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{37BF0AEA-16EA-443C-88AE-8B1882FF6C6C}.Release|Any CPU.Build.0 = Release|Any CPU
 		{0351AF2B-21F6-430B-85DA-1FF054F0F0AB}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{0351AF2B-21F6-430B-85DA-1FF054F0F0AB}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{0351AF2B-21F6-430B-85DA-1FF054F0F0AB}.Release|Any CPU.ActiveCfg = Release|Any CPU
