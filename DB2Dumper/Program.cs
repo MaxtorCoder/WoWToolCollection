@@ -5,6 +5,7 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
+using System.Linq;
 using System.Net.Http;
 
 namespace DB2Dumper
@@ -51,40 +52,44 @@ namespace DB2Dumper
         static IDBCDStorage ItemAppearance { get; set; }
         static IDBCDStorage ItemModifiedAppearance { get; set; }
 
+        static IDBCDStorage SpellXSpellVisual { get; set; }
+
         static void Main(string[] args)
         {
             var dbcd = new DBCD.DBCD(new DBCProvider(), new DBDProvider());
 
-            Item                    = dbcd.Load($"{DB2Path}/Item.db2");
-            ItemAppearance          = dbcd.Load($"{DB2Path}/ItemAppearance.db2");
-            ItemModifiedAppearance  = dbcd.Load($"{DB2Path}/ItemModifiedAppearance.db2");
-
-            var itemList = new List<Item>();
-            foreach (var id in ItemModifiedAppearance.Keys)
+            var emotes = dbcd.Load("Emotes.db2");
+            using (var writer = new StreamWriter("emotes.txt"))
             {
-                var itemID = ItemModifiedAppearance.GetField<int>(id, "ItemID");
-                if (itemID == 0 || !Item.ContainsKey(itemID))
-                    continue;
-
-                var item = new Item
+                foreach (var id in emotes.Keys)
                 {
-                    ItemID          = (uint)itemID,
-                    SubClassID      = Item.GetField<byte>(itemID, "SubclassID"),
-                    InventoryType   = Item.GetField<byte>(itemID, "InventoryType"),
-                };
+                    //under this ID emotes are new.
+                    if (id <= 621)
+                        continue;
 
-                var itemAppearanceID = ItemModifiedAppearance.GetField<int>(id, "ItemAppearanceID");
-                if (ItemAppearance.ContainsKey(itemAppearanceID))
-                {
-                    var itemDisplayInfo = ItemAppearance.GetField<uint>(itemAppearanceID, "ItemDisplayInfoID");
-                    item.ItemDisplayInfoID = itemDisplayInfo;
+                    var emoteName = emotes.GetField<string>(id, "EmoteSlashCommand");
+                    if (string.IsNullOrWhiteSpace(emoteName))
+                        continue;
+
+                    emoteName = emoteName.ToUpper();
+
+                    if (emoteName.Contains("(") && emoteName.Contains(")"))
+                    {
+                        var idxOfStart = emoteName.IndexOf("(") - 1; //< Take in account the extra whitespace.
+                        var idxOfStop = emoteName.IndexOf(")");
+
+                        Console.WriteLine($"IndexOfStart: {idxOfStart} in {emoteName}");
+                        Console.WriteLine($"IndexOfStop: {idxOfStop} in {emoteName}");
+
+                        emoteName = emoteName.Replace(emoteName.Substring(idxOfStart, idxOfStop - idxOfStart + 1), "");
+                        Console.WriteLine($"New Name: {emoteName}\n");
+                    }
+
+                    emoteName = emoteName.Replace(" ", "_");
+
+                    writer.WriteLine($"EMOTE_{emoteName,-64} = {id},");
                 }
-
-                Console.WriteLine($"Added Item: {itemID} with ItemDisplay: {item.ItemDisplayInfoID} InventoryType: {item.InventoryType}");
-                itemList.Add(item);
             }
-
-            WriteRecords("item.csv", itemList);
         }
 
         static void WriteRecords<T>(string file, IEnumerable<T> container) where T : new()
@@ -190,6 +195,55 @@ namespace DB2Dumper
             }
 
             WriteRecords("CharacterLoadout.csv", loadoutList);
+
+            Item = dbcd.Load($"{DB2Path}/Item.db2");
+            ItemAppearance = dbcd.Load($"{DB2Path}/ItemAppearance.db2");
+            ItemModifiedAppearance = dbcd.Load($"{DB2Path}/ItemModifiedAppearance.db2");
+
+            var itemList = new List<Item>();
+            var idList = new List<int>();
+            foreach (var id in ItemModifiedAppearance.Keys)
+            {
+                var itemID = ItemModifiedAppearance.GetField<int>(id, "ItemID");
+                if (itemID == 0 || !Item.ContainsKey(itemID))
+                    continue;
+
+                var item = new Item
+                {
+                    ItemID = (uint)itemID,
+                    SubClassID = Item.GetField<byte>(itemID, "SubclassID"),
+                    InventoryType = Item.GetField<byte>(itemID, "InventoryType"),
+                };
+
+                var itemAppearanceID = ItemModifiedAppearance.GetField<int>(id, "ItemAppearanceID");
+                if (ItemAppearance.ContainsKey(itemAppearanceID))
+                {
+                    var itemDisplayInfo = ItemAppearance.GetField<uint>(itemAppearanceID, "ItemDisplayInfoID");
+                    item.ItemDisplayInfoID = itemDisplayInfo;
+                }
+
+                Console.WriteLine($"Added Item: {itemID} with ItemDisplay: {item.ItemDisplayInfoID} InventoryType: {item.InventoryType}");
+
+                itemList.Add(item);
+                idList.Add(itemID);
+            }
+
+            foreach (var id in Item.Keys)
+            {
+                var item = new Item
+                {
+                    ItemID = (uint)id,
+                    SubClassID = Item.GetField<byte>(id, "SubclassID"),
+                    InventoryType = Item.GetField<byte>(id, "InventoryType"),
+                };
+
+                if (idList.Contains(id))
+                    continue;
+
+                itemList.Add(item);
+            }
+
+            WriteRecords("item.csv", itemList);
         }
     }
 
